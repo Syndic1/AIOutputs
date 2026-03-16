@@ -1930,6 +1930,7 @@ body.council-variant::after {
       <span>TREATY AMENDMENTS</span>
       <div style="display:flex;gap:8px;align-items:center;">
         <button class="amend-propose-btn" onclick="proposeAmendments()">⚗ SOLICIT PROPOSALS</button>
+        <button class="amend-propose-btn" id="generateMinutesBtn" onclick="finaliseMinutes()" style="display:none;background:var(--claude);border-color:var(--claude);">⚗ GENERATE MINUTES</button>
         <button class="drawer-close" onclick="closeAllDrawers()">✕ CLOSE</button>
       </div>
     </div>
@@ -2018,8 +2019,8 @@ body.council-variant::after {
     <div class="sidebar-section">
       <span class="sidebar-label">SESSION</span>
       <button class="sidebar-btn summarise" onclick="summariseAndExport()"
-        data-tip-title="PUBLISH MINUTES"
-        data-tip="Claude summarises the session, generates formatted HTML minutes for publication, auto-files to memory, and solicits amendment proposals.">⚗ PUBLISH MINUTES</button>
+        data-tip-title="END MEETING"
+        data-tip="Opens amendments panel for voting. Once done, generates the session summary, publishes minutes to GitHub, files to memory, and solicits new amendment proposals.">⚑ END MEETING</button>
     </div>
 
     <!-- Amendments -->
@@ -2192,6 +2193,8 @@ let sessionHistory = [];
 let priorSessionContext = null; // Injected on import
 let amendments = [];
 let amendmentCounter = 0;
+let sessionRatifiedIds = new Set(); // tracks amendments ratified during this session's publish flow
+let _awaitingVoteBeforeMinutes = false; // set when publish minutes is waiting for amendment votes
 let sessionMemory = ''; // Rolling summary of current session — injected into all prompts
 let sessionMemoryEntries = []; // Array of {dispatch, delta} for display/trimming
 let longTermMemory = ''; // Retrieved from vector store — set fresh each dispatch
@@ -3665,10 +3668,16 @@ Respond with ONLY a JSON object: {"vote": "second", "reason": "..."} or {"vote":
       const res = await fetch('https://api.openai.com/v1/responses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-        body: JSON.stringify({ model: PARTY_MODELS.gpt, max_output_tokens: 120, input: [{ role: 'user', content: prompt }] })
+        body: JSON.stringify({ model: PARTY_MODELS.gpt, max_output_tokens: 200, input: [{ role: 'user', content: prompt }] })
       });
+      if (!res.ok) throw new Error(`GPT API ${res.status}`);
       const data = await res.json();
-      return data.output?.[0]?.content?.[0]?.text || '{}';
+      const text = (data.output || [])
+        .filter(o => o.type === 'message')
+        .flatMap(o => o.content || [])
+        .filter(c => c.type === 'output_text' || c.type === 'text')
+        .map(c => c.text).join('').trim();
+      return text || '{}';
     },
     gemini: async (prompt) => {
       const key = document.getElementById('geminiKey').value.trim();
@@ -3676,8 +3685,9 @@ Respond with ONLY a JSON object: {"vote": "second", "reason": "..."} or {"vote":
       const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${PARTY_MODELS.gemini}:generateContent?key=${key}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { maxOutputTokens: 120 } })
+        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { maxOutputTokens: 200 } })
       });
+      if (!res.ok) throw new Error(`Gemini API ${res.status}`);
       const data = await res.json();
       return data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
     }
@@ -3740,6 +3750,8 @@ function acceptAmendment(id) {
   const objects = Object.values(votes).filter(v => v.vote === 'object').length;
   amend.status = 'accepted';
   amend._override = objects > 0;
+  // Track ratifications that occur during the current publish flow
+  sessionRatifiedIds.add(id);
   renderAmendments();
   showKeyStatus(amend._override ? '⚠ RATIFIED — CHAIR OVERRIDE' : '✓ AMENDMENT RATIFIED');
   // Push to Pi
@@ -3896,8 +3908,14 @@ If no amendments are warranted after applying the abstraction test, respond with
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
         body: JSON.stringify({ model: PARTY_MODELS.gpt, max_output_tokens: 600, input: [{ role: 'user', content: prompt }] })
       });
+      if (!res.ok) throw new Error(`GPT API ${res.status}`);
       const data = await res.json();
-      return data.output?.[0]?.content?.[0]?.text || '[]';
+      const text = (data.output || [])
+        .filter(o => o.type === 'message')
+        .flatMap(o => o.content || [])
+        .filter(c => c.type === 'output_text' || c.type === 'text')
+        .map(c => c.text).join('').trim();
+      return text || '[]';
     },
     gemini: async (prompt) => {
       const key = document.getElementById('geminiKey').value.trim();
@@ -3907,6 +3925,7 @@ If no amendments are warranted after applying the abstraction test, respond with
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { maxOutputTokens: 600 } })
       });
+      if (!res.ok) throw new Error(`Gemini API ${res.status}`);
       const data = await res.json();
       return data.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
     }
@@ -3940,8 +3959,9 @@ function publishMinutes(summaryText) {
   const dateSlug = now.toISOString().slice(0, 16).replace('T', '-').replace(':', '');
   const chairName = document.getElementById('hughSeatName')?.textContent || 'HUGH ROBERTS';
 
-  const ratifiedAmendments = amendments.filter(a => a.status === 'accepted');
-  const newAmendments = ratifiedAmendments.slice(-3); // amendments from this session (last 3 as proxy)
+  const newAmendments = sessionRatifiedIds.size > 0
+    ? amendments.filter(a => sessionRatifiedIds.has(a.id))
+    : []; // only amendments ratified during this session's publish flow
 
   // Build transcript HTML
   const transcriptHtml = sessionHistory.map(entry => {
@@ -4105,14 +4125,7 @@ ${sessionCostLog.length > 0 ? `<div class="m-section">
 </body>
 </html>`;
 
-  const blob = new Blob([html], { type: 'text/html' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `bangor-roundtable-minutes-${dateSlug}.html`;
-  a.click();
-  URL.revokeObjectURL(url);
-  showKeyStatus('✓ MINUTES PUBLISHED');
+  showKeyStatus('⚗ PUBLISHING MINUTES TO GITHUB...');
 
   // Push to GitHub — minutes file + manifest update
   const sessionTitle = summaryText
@@ -4211,13 +4224,56 @@ function addResponseFromHistory(party, text, time) {
 
 // ── SUMMARISE & EXPORT ──────────────────────────────────────────────────────
 
-async function summariseAndExport() {
+// Entry point for the PUBLISH MINUTES button.
+// If there are pending amendments, open the amendments panel for voting first.
+// The "GENERATE MINUTES" button in the panel then calls finaliseMinutes().
+// If no pending amendments exist, go straight to finaliseMinutes().
+function summariseAndExport() {
   const claudeKey = document.getElementById('claudeKey').value.trim();
   if (!claudeKey) {
     showKeyStatus('⚠ CLAUDE KEY NEEDED FOR SUMMARY', true);
     return;
   }
+  if (sessionHistory.length === 0) {
+    showKeyStatus('⚠ NOTHING TO SUMMARISE', true);
+    return;
+  }
 
+  const pendingAmendments = amendments.filter(a => a.status === 'pending' || a.status === 'voting');
+  if (pendingAmendments.length > 0) {
+    // Reset session ratification tracking for this publish run
+    sessionRatifiedIds = new Set();
+    _awaitingVoteBeforeMinutes = true;
+    // Show the Generate Minutes button in the panel
+    const btn = document.getElementById('generateMinutesBtn');
+    if (btn) btn.style.display = '';
+    // Open the amendments panel
+    const panel = document.getElementById('amendmentPanel');
+    const backdrop = document.getElementById('drawerBackdrop');
+    panel.classList.add('open');
+    backdrop.classList.add('visible');
+    showKeyStatus(`⚖ ${pendingAmendments.length} AMENDMENT(S) PENDING — VOTE THEN GENERATE MINUTES`);
+  } else {
+    // No pending amendments — proceed directly
+    sessionRatifiedIds = new Set();
+    finaliseMinutes();
+  }
+}
+
+async function finaliseMinutes() {
+  // Hide generate-minutes button and clear the waiting flag
+  const btn = document.getElementById('generateMinutesBtn');
+  if (btn) btn.style.display = 'none';
+  _awaitingVoteBeforeMinutes = false;
+
+  // Close the amendments panel if open
+  closeAllDrawers();
+
+  const claudeKey = document.getElementById('claudeKey').value.trim();
+  if (!claudeKey) {
+    showKeyStatus('⚠ CLAUDE KEY NEEDED FOR SUMMARY', true);
+    return;
+  }
   if (sessionHistory.length === 0) {
     showKeyStatus('⚠ NOTHING TO SUMMARISE', true);
     return;
