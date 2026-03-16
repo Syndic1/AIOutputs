@@ -1368,6 +1368,7 @@ textarea::placeholder {
 
 .vote-entry.second { color: var(--success); }
 .vote-entry.object { color: var(--danger); }
+.vote-entry.abstain { color: var(--text-dim); }
 
 .vote-party { color: var(--text-dim); }
 
@@ -3612,7 +3613,10 @@ function renderAmendments() {
     const voteEntries = Object.entries(votes);
     const seconds = voteEntries.filter(([,v]) => v.vote === 'second').length;
     const objects = voteEntries.filter(([,v]) => v.vote === 'object').length;
-    const unanimousObject = objects === 3;
+    const eligibleVoters = Object.entries(activeParties)
+      .filter(([party, enabled]) => enabled && party !== amend.party)
+      .length;
+    const unanimousObject = eligibleVoters > 0 && objects === eligibleVoters;
 
     let statusLabel = ' · PENDING';
     if (amend.status === 'accepted') statusLabel = amend._override ? ' · ✓ RATIFIED (CHAIR OVERRIDE)' : ' · ✓ RATIFIED';
@@ -3624,7 +3628,7 @@ function renderAmendments() {
         ${voteEntries.map(([p, v]) => `
           <div class="vote-entry ${v.vote}">
             <span class="vote-party">${PARTY_NAMES[p] || p}</span>
-            <span class="vote-verdict">${v.vote === 'second' ? '✓ SECONDED' : '✗ OBJECTION'}</span>
+            <span class="vote-verdict">${v.vote === 'second' ? '✓ SECONDED' : v.vote === 'object' ? '✗ OBJECTION' : '• ABSTAINED'}</span>
             ${v.reason ? `<span class="vote-reason">${escapeHtml(v.reason)}</span>` : ''}
           </div>`).join('')}
       </div>` : '';
@@ -3688,10 +3692,34 @@ Consider: Does this amendment genuinely serve the Treaty's purpose — governing
 
 Respond with ONLY a JSON object: {"vote": "second", "reason": "..."} or {"vote": "object", "reason": "..."}`;
 
-  const parties = ['claude', 'gpt', 'gemini'].filter(p => p !== amend.party); // proposer auto-seconds
-  if (amend.party && ['claude','gpt','gemini'].includes(amend.party)) {
+  const parties = Object.entries(activeParties)
+    .filter(([party, enabled]) => enabled && party !== amend.party)
+    .map(([party]) => party);
+  if (amend.party && activeParties[amend.party]) {
     amend.votes[amend.party] = { vote: 'second', reason: 'Proposing party seconds their own amendment.' };
   }
+
+  const parseVoteResponse = (raw) => {
+    if (!raw || typeof raw !== 'string') {
+      return { vote: 'abstain', reason: 'No vote returned by model.' };
+    }
+
+    const withoutFences = raw.replace(/```(?:json)?/gi, '').trim();
+    const jsonMatch = withoutFences.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return { vote: 'abstain', reason: 'Vote parsing failed: no JSON object found.' };
+    }
+
+    try {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (parsed.vote === 'second' || parsed.vote === 'object') {
+        return { vote: parsed.vote, reason: typeof parsed.reason === 'string' ? parsed.reason : '' };
+      }
+      return { vote: 'abstain', reason: 'Vote parsing failed: invalid vote value.' };
+    } catch {
+      return { vote: 'abstain', reason: 'Vote parsing failed: malformed JSON.' };
+    }
+  };
 
   // Ask each non-proposing party to vote
   const callerMap = {
@@ -3710,7 +3738,27 @@ Respond with ONLY a JSON object: {"vote": "second", "reason": "..."} or {"vote":
       const res = await fetch('https://api.openai.com/v1/responses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-        body: JSON.stringify({ model: PARTY_MODELS.gpt, max_output_tokens: 200, input: [{ role: 'user', content: prompt }] })
+        body: JSON.stringify({
+          model: PARTY_MODELS.gpt,
+          max_output_tokens: 200,
+          input: [{ role: 'user', content: prompt }],
+          text: {
+            format: {
+              type: 'json_schema',
+              name: 'council_vote',
+              strict: true,
+              schema: {
+                type: 'object',
+                properties: {
+                  vote: { type: 'string', enum: ['second', 'object'] },
+                  reason: { type: 'string' }
+                },
+                required: ['vote', 'reason'],
+                additionalProperties: false
+              }
+            }
+          }
+        })
       });
       if (!res.ok) throw new Error(`GPT API ${res.status}`);
       const data = await res.json();
@@ -3738,14 +3786,10 @@ Respond with ONLY a JSON object: {"vote": "second", "reason": "..."} or {"vote":
   for (const party of parties) {
     try {
       const raw = await callerMap[party](votePrompt);
-      if (!raw) continue;
-      const clean = raw.replace(/```json|```/g, '').trim();
-      const parsed = JSON.parse(clean);
-      if (parsed.vote === 'second' || parsed.vote === 'object') {
-        amend.votes[party] = { vote: parsed.vote, reason: parsed.reason || '' };
-      }
+      console.debug(`[VOTE RAW][${party}]`, raw);
+      amend.votes[party] = parseVoteResponse(raw);
     } catch(e) {
-      amend.votes[party] = { vote: 'second', reason: 'Vote unclear — defaulting to second.' };
+      amend.votes[party] = { vote: 'abstain', reason: `Vote request failed: ${e.message}` };
     }
   }
 
@@ -3753,12 +3797,13 @@ Respond with ONLY a JSON object: {"vote": "second", "reason": "..."} or {"vote":
   const voteEntries = Object.entries(amend.votes);
   const seconds = voteEntries.filter(([,v]) => v.vote === 'second').length;
   const objects = voteEntries.filter(([,v]) => v.vote === 'object').length;
+  const abstains = voteEntries.filter(([,v]) => v.vote === 'abstain').length;
   amend.status = 'pending';
   renderAmendments();
 
-  if (objects === 0) showKeyStatus('✓ UNANIMOUS — ALL PARTIES SECOND');
-  else if (seconds >= objects) showKeyStatus(`⚖ CONTESTED — ${seconds} FOR, ${objects} AGAINST`);
-  else showKeyStatus(`⚠ MAJORITY OBJECT — ${objects} AGAINST, ${seconds} FOR`);
+  if (objects === 0 && abstains === 0) showKeyStatus('✓ UNANIMOUS — ALL PARTIES SECOND');
+  else if (seconds >= objects) showKeyStatus(`⚖ CONTESTED — ${seconds} FOR, ${objects} AGAINST${abstains ? `, ${abstains} ABSTAIN` : ''}`);
+  else showKeyStatus(`⚠ MAJORITY OBJECT — ${objects} AGAINST, ${seconds} FOR${abstains ? `, ${abstains} ABSTAIN` : ''}`);
 }
 
 
@@ -3886,7 +3931,7 @@ function addAmendment(party, partyName, text) {
     partyName,
     text: cleaned,
     status: 'pending',
-    votes: {}  // { claude: {vote:'second'|'object', reason:''}, gpt: {...}, gemini: {...} }
+    votes: {}  // { claude: {vote:'second'|'object'|'abstain', reason:''}, gpt: {...}, gemini: {...} }
   });
   renderAmendments();
   // Open the panel so Hugh sees proposals
