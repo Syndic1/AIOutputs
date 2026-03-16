@@ -2237,7 +2237,141 @@ function updateCostDisplay() {
                  : 'var(--text-dim)';
 }
 
-// ── MEMORY LOG ────────────────────────────────────────────────────────────────
+// ── GITHUB PUBLISHER ──────────────────────────────────────────────────────────
+
+function githubReady() {
+  return _github.token && _github.owner && _github.repo;
+}
+
+async function githubCommit(path, content, message) {
+  // content is a string — will be base64 encoded
+  if (!githubReady()) {
+    logMemory('warn', 'GitHub publish skipped — no PAT configured in config.json');
+    return false;
+  }
+
+  const apiBase = `https://api.github.com/repos/${_github.owner}/${_github.repo}/contents/${path}`;
+  const headers = {
+    'Authorization': `Bearer ${_github.token}`,
+    'Accept': 'application/vnd.github+json',
+    'Content-Type': 'application/json',
+    'X-GitHub-Api-Version': '2022-11-28'
+  };
+
+  // Get current file SHA if it exists (needed for updates)
+  let sha = null;
+  try {
+    const existing = await fetch(`${apiBase}?ref=${_github.branch}`, { headers });
+    if (existing.ok) {
+      const data = await existing.json();
+      sha = data.sha;
+    }
+  } catch(e) {}
+
+  // Commit the file
+  const body = {
+    message,
+    content: btoa(unescape(encodeURIComponent(content))), // UTF-8 safe base64
+    branch: _github.branch,
+  };
+  if (sha) body.sha = sha;
+
+  try {
+    const res = await fetch(apiBase, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(body)
+    });
+    if (res.ok) {
+      logMemory('store', `✓ GitHub commit — ${path}`);
+      return true;
+    } else {
+      const err = await res.json().catch(() => ({}));
+      logMemory('warn', `GitHub commit failed — ${path} — ${err.message || res.status}`);
+      return false;
+    }
+  } catch(e) {
+    logMemory('warn', `GitHub commit failed — ${path} — ${e.message}`);
+    return false;
+  }
+}
+
+async function publishAmendmentsToSite() {
+  if (!githubReady()) return;
+
+  const ratified = amendments.filter(a => a.status === 'accepted').sort((a,b) => a.id - b.id);
+  const rejected = amendments.filter(a => a.status === 'rejected').sort((a,b) => a.id - b.id);
+
+  logMemory('store', `Publishing amendment record to site — ${ratified.length} ratified, ${rejected.length} rejected`);
+
+  const payload = JSON.stringify({
+    generated: new Date().toISOString(),
+    ratified,
+    rejected
+  }, null, 2);
+
+  const ok = await githubCommit(
+    'amendments.json',
+    payload,
+    `Update amendment record — ${ratified.length} ratified amendment(s) · ${new Date().toLocaleDateString('en-GB')}`
+  );
+
+  if (ok) showKeyStatus('✓ AMENDMENTS PUBLISHED TO SITE');
+}
+
+async function publishMinutesToSite(dateSlug, title, summaryText, htmlContent) {
+  if (!githubReady()) return;
+
+  const minutesPath = `minutes/${dateSlug}.html`;
+  logMemory('store', `Publishing minutes to site — ${minutesPath}`);
+
+  // Push the minutes HTML file
+  const htmlOk = await githubCommit(
+    minutesPath,
+    htmlContent,
+    `Add minutes — ${dateSlug} · ${title || 'Roundtable session'}`
+  );
+
+  if (!htmlOk) return;
+
+  // Update the manifest
+  let manifest = { sessions: [] };
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${_github.owner}/${_github.repo}/contents/minutes/manifest.json?ref=${_github.branch}`,
+      { headers: { 'Authorization': `Bearer ${_github.token}`, 'Accept': 'application/vnd.github+json' } }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      manifest = JSON.parse(atob(data.content.replace(/\n/g, '')));
+    }
+  } catch(e) {}
+
+  // Add this session if not already present
+  const existing = manifest.sessions.find(s => s.date === dateSlug);
+  if (!existing) {
+    manifest.sessions.unshift({
+      date: dateSlug,
+      slug: `minutes/${dateSlug}.html`,
+      title: title || `Session — ${dateSlug}`,
+      summary: summaryText ? summaryText.slice(0, 200) + (summaryText.length > 200 ? '...' : '') : '',
+      amendments: amendments.filter(a => a.status === 'accepted').length
+    });
+  }
+
+  const manifestOk = await githubCommit(
+    'minutes/manifest.json',
+    JSON.stringify(manifest, null, 2),
+    `Update minutes manifest — added ${dateSlug}`
+  );
+
+  if (manifestOk) {
+    logMemory('store', `✓ Minutes manifest updated — ${manifest.sessions.length} session(s) on record`);
+    showKeyStatus('✓ MINUTES PUBLISHED TO SITE');
+  }
+}
+
+
 
 let memoryLog = []; // [{time, type, msg}] — type: 'retrieve'|'store'|'load'|'info'|'warn'
 
@@ -2723,6 +2857,7 @@ let _keys = { claude: '', openai: '', gemini: '' };
 let _memoryServerUrl = '';
 let _memoryServerEnabled = false;
 let _avatars = { claude: null, gpt: null, gemini: null };
+let _github = { token: '', owner: '', repo: '', branch: 'main' };
 
 // Shim so existing code using getElementById('claudeKey').value still works
 const _keyProxy = {
@@ -2773,6 +2908,14 @@ function loadConfig(event) {
       if (cfg.memory_server) {
         _memoryServerUrl     = cfg.memory_server.url || '';
         _memoryServerEnabled = cfg.memory_server.enabled || false;
+      }
+
+      // GitHub publisher
+      if (cfg.github) {
+        _github.token  = cfg.github.token  || '';
+        _github.owner  = cfg.github.owner  || '';
+        _github.repo   = cfg.github.repo   || '';
+        _github.branch = cfg.github.branch || 'main';
       }
 
       // Persist to sessionStorage
@@ -2837,6 +2980,12 @@ function restoreConfigFromSession() {
     if (cfg.memory_server) {
       _memoryServerUrl     = cfg.memory_server.url || '';
       _memoryServerEnabled = cfg.memory_server.enabled || false;
+    }
+    if (cfg.github) {
+      _github.token  = cfg.github.token  || '';
+      _github.owner  = cfg.github.owner  || '';
+      _github.repo   = cfg.github.repo   || '';
+      _github.branch = cfg.github.branch || 'main';
     }
     const keyCount = [_keys.claude, _keys.openai, _keys.gemini].filter(Boolean).length;
     setConfigStatus(`SESSION RESTORED · ${keyCount}/3 KEYS`, 'loaded');
@@ -3557,16 +3706,18 @@ function acceptAmendment(id) {
   amend._override = objects > 0;
   renderAmendments();
   showKeyStatus(amend._override ? '⚠ RATIFIED — CHAIR OVERRIDE' : '✓ AMENDMENT RATIFIED');
-  // Push ratified amendment to Pi — this is the constitutional record
+  // Push to Pi
   pushAmendmentToMemory(amend);
+  // Push to public site
+  publishAmendmentsToSite();
 }
 
 function rejectAmendment(id) {
   const amend = amendments.find(a => a.id === id);
   if (amend) {
     amend.status = 'rejected';
-    // Also store rejections — constitutional history includes what was refused
     pushAmendmentToMemory(amend);
+    publishAmendmentsToSite();
   }
   renderAmendments();
 }
@@ -3926,6 +4077,12 @@ ${sessionCostLog.length > 0 ? `<div class="m-section">
   a.click();
   URL.revokeObjectURL(url);
   showKeyStatus('✓ MINUTES PUBLISHED');
+
+  // Push to GitHub — minutes file + manifest update
+  const sessionTitle = summaryText
+    ? summaryText.split('.')[0].slice(0, 80)  // first sentence of summary as title
+    : `Session — ${dateStr}`;
+  publishMinutesToSite(dateSlug, sessionTitle, summaryText, html);
 }
 
 // ── SESSION IMPORT ──────────────────────────────────────────────────────────

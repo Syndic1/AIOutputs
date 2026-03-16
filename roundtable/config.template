@@ -4,6 +4,12 @@
     "openai": "sk-YOUR-OPENAI-KEY-HERE",
     "gemini": "AIza-YOUR-GOOGLE-KEY-HERE"
   },
+  "github": {
+    "token": "ghp-YOUR-GITHUB-PAT-HERE",
+    "owner": "Syndic1",
+    "repo": "AIOutputs",
+    "branch": "main"
+  },
   "avatars": {
     "claude": "",
     "gpt": "",

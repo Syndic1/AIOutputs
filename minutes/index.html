@@ -262,18 +262,17 @@
 </footer>
 
 <script>
-function renderMinutes() {
-  const minutes = window.BANGOR_MINUTES || [];
+function renderMinutes(sessions) {
   const container = document.getElementById('minutes-container');
 
-  if (minutes.length === 0) {
+  if (!sessions || sessions.length === 0) {
     container.innerHTML = `<div class="empty-state">No minutes have yet been published. The first session of the Roundtable will be recorded here.</div>`;
     return;
   }
 
   // Group by year
   const byYear = {};
-  minutes.forEach(m => {
+  sessions.forEach(m => {
     const year = m.date ? m.date.split('-')[0] : 'MMXXVI';
     if (!byYear[year]) byYear[year] = [];
     byYear[year].push(m);
@@ -281,10 +280,10 @@ function renderMinutes() {
 
   container.innerHTML = Object.entries(byYear)
     .sort(([a],[b]) => b.localeCompare(a))
-    .map(([year, sessions]) => `
+    .map(([year, yr_sessions]) => `
       <div class="year-section">
         <div class="year-heading">Anno Domini ${year}</div>
-        ${sessions.sort((a,b) => b.date.localeCompare(a.date)).map(m => `
+        ${yr_sessions.sort((a,b) => b.date.localeCompare(a.date)).map(m => `
           <a href="${m.slug}" class="minutes-entry">
             <div class="entry-outer">
               <div class="entry-inner">
@@ -311,7 +310,11 @@ function formatDate(dateStr) {
   } catch(e) { return dateStr; }
 }
 
-renderMinutes();
+// Fetch manifest.json — auto-published by the Roundtable on Publish Minutes
+fetch('manifest.json')
+  .then(r => r.ok ? r.json() : Promise.reject(r.status))
+  .then(data => renderMinutes(data.sessions || []))
+  .catch(() => renderMinutes([]));
 </script>
 </body>
 </html>

@@ -364,7 +364,6 @@
 </footer>
 
 <script>
-// Roman numeral helper
 function toRoman(n) {
   const vals = [1000,900,500,400,100,90,50,40,10,9,5,4,1];
   const syms = ['M','CM','D','CD','C','XC','L','XL','X','IX','V','IV','I'];
@@ -381,15 +380,9 @@ function escapeHtml(s) {
 
 const PARTY_NAMES = { claude: 'Claude', gpt: 'ChatGPT', gemini: 'Gemini' };
 
-// Amendments are injected here by the auto-publish system
-// Format: window.BANGOR_AMENDMENTS = [{id, date, party, partyName, text, status, votes, _override}, ...]
-// For now, render whatever is present
-
-function renderAmendments() {
-  const amendments = window.BANGOR_AMENDMENTS || [];
-  const ratified = amendments.filter(a => a.status === 'accepted').sort((a,b) => a.id - b.id);
-  const rejected = amendments.filter(a => a.status === 'rejected').sort((a,b) => a.id - b.id);
-
+function renderAmendments(data) {
+  const ratified = (data.ratified || []).sort((a,b) => a.id - b.id);
+  const rejected = (data.rejected || []).sort((a,b) => a.id - b.id);
   const container = document.getElementById('amendments-container');
 
   if (ratified.length === 0) {
@@ -425,7 +418,6 @@ function renderAmendments() {
     }).join('');
   }
 
-  // Rejected
   if (rejected.length > 0) {
     document.getElementById('rejected-section').style.display = 'block';
     document.getElementById('rejected-list').innerHTML = rejected.map(a => `
@@ -445,7 +437,11 @@ function toggleRejected() {
     : '▸ REJECTED PROPOSALS — For the constitutional record';
 }
 
-renderAmendments();
+// Fetch amendments.json — auto-published by the Roundtable on ratification
+fetch('amendments.json')
+  .then(r => r.ok ? r.json() : Promise.reject(r.status))
+  .then(data => renderAmendments(data))
+  .catch(() => renderAmendments({ ratified: [], rejected: [] }));
 </script>
 </body>
 </html>
