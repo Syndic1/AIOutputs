@@ -1,0 +1,25 @@
+# ── API KEYS — NEVER COMMIT THESE ────────────────────────────────────────────
+*.json
+*.env
+.env*
+config.local.*
+
+# Explicitly allow the template (no real keys)
+!config.template.json
+
+# ── OS / EDITOR JUNK ─────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ── PYTHON ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+.venv/
+
+# ── LOGS ─────────────────────────────────────────────────────────────────────
+*.log

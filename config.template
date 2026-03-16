@@ -1,0 +1,31 @@
+{
+  "keys": {
+    "claude": "sk-ant-YOUR-ANTHROPIC-KEY-HERE",
+    "openai": "sk-YOUR-OPENAI-KEY-HERE",
+    "gemini": "AIza-YOUR-GOOGLE-KEY-HERE"
+  },
+  "avatars": {
+    "claude": "",
+    "gpt": "",
+    "gemini": ""
+  },
+  "models": {
+    "claude":     "claude-haiku-4-5-20251001",
+    "gpt":        "gpt-5-mini",
+    "gemini":     "gemini-3.1-flash-lite-preview",
+    "background": "claude-haiku-4-5-20251001",
+    "search":     "claude-sonnet-4-6",
+    "summary":    "claude-sonnet-4-6"
+  },
+  "memory_server": {
+    "url": "http://192.168.YOUR.PI:3001",
+    "enabled": false
+  },
+  "database": {
+    "host": "localhost",
+    "port": 3306,
+    "user": "roundtable",
+    "password": "YOUR-DB-PASSWORD-HERE",
+    "database": "roundtable"
+  }
+}

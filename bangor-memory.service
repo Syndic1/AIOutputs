@@ -1,0 +1,42 @@
+[Unit]
+Description=Bangor Roundtable Memory Server
+Documentation=https://syndic1.github.io/AIOutputs/
+After=network-online.target mariadb.service
+Wants=network-online.target
+Requires=mariadb.service
+
+[Service]
+Type=simple
+User=dudu
+Group=dudu
+
+# Adjust these paths to match where you've put the files on the Pi
+WorkingDirectory=/home/dudu/roundtable
+ExecStart=/home/dudu/bot-env/bin/python /home/dudu/roundtable/memory_server.py
+
+# Restart behaviour — come back if it crashes, but not if it exits cleanly
+Restart=on-failure
+RestartSec=10
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+# Logging — journal captures stdout/stderr
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=bangor-memory
+
+# Give it 30s to start before systemd gives up
+TimeoutStartSec=30
+
+# Environment — optional, can also set these in config.json instead
+# Environment="ROUNDTABLE_PORT=3001"
+
+# Security hardening — reasonable for a local network service
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/pi/bangor-roundtable
+
+[Install]
+WantedBy=multi-user.target
