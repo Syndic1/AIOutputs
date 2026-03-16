@@ -1379,6 +1379,107 @@ textarea::placeholder {
   color: var(--claude-color);
 }
 
+/* Memory log drawer */
+.memory-log-panel {
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  width: 480px;
+  background: var(--bg2);
+  border-left: 1px solid var(--border-bright);
+  z-index: 500;
+  transform: translateX(100%);
+  transition: transform 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.memory-log-panel.open { transform: translateX(0); }
+
+.memory-log-inner {
+  padding: 16px 20px;
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.memory-log-header {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  color: var(--text-dim);
+  letter-spacing: 2px;
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.memory-log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.memory-log-list::-webkit-scrollbar { width: 3px; }
+.memory-log-list::-webkit-scrollbar-thumb { background: var(--border-bright); }
+
+.memory-log-entry {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: 8px;
+  padding: 4px 8px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  border-left: 2px solid transparent;
+  line-height: 1.5;
+}
+
+.memory-log-entry.retrieve { border-color: var(--gemini-color); }
+.memory-log-entry.store    { border-color: var(--success); }
+.memory-log-entry.load     { border-color: var(--claude-color); }
+.memory-log-entry.info     { border-color: var(--border-bright); }
+.memory-log-entry.warn     { border-color: var(--danger); }
+
+.log-time { color: var(--text-dim); font-size: 10px; padding-top: 1px; }
+
+.memory-log-entry.retrieve .log-msg { color: var(--gemini-color); }
+.memory-log-entry.store    .log-msg { color: var(--success); }
+.memory-log-entry.load     .log-msg { color: var(--claude-color); }
+.memory-log-entry.info     .log-msg { color: var(--text-dim); }
+.memory-log-entry.warn     .log-msg { color: var(--danger); }
+
+.memory-log-empty {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+  font-style: italic;
+  padding: 8px 0;
+  letter-spacing: 1px;
+}
+
+@keyframes logDotFlash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+
+.memory-log-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+  margin-right: 5px;
+  vertical-align: middle;
+}
+
+.memory-log-dot.flash {
+  animation: logDotFlash 0.6s ease;
+}
+
 .intel-brief {
   background: rgba(200,120,74,0.07);
   border: 1px solid var(--claude-border);
@@ -1854,6 +1955,19 @@ body.council-variant::after {
   </div>
 </div>
 
+<!-- Memory Log Panel — overlay drawer -->
+<div class="memory-log-panel" id="memoryLogPanel">
+  <div class="memory-log-inner">
+    <div class="memory-log-header">
+      <span>🗄 MEMORY ACTIVITY LOG</span>
+      <button class="drawer-close" onclick="closeAllDrawers()">✕ CLOSE</button>
+    </div>
+    <div class="memory-log-list" id="memoryLogList">
+      <div class="memory-log-empty">No memory activity yet this session.</div>
+    </div>
+  </div>
+</div>
+
 <!-- App body: sidebar + main content -->
 <div class="app-body">
 
@@ -1927,6 +2041,12 @@ body.council-variant::after {
         data-tip-title="SESSION MEMORY"
         data-tip="Click to view rolling session memory entries. Auto-generated after each dispatch.">
         📋 MEMORY: <span id="memoryEntryCount">0</span>
+      </div>
+      <div class="sidebar-indicator clickable" id="memoryLogBtn"
+        onclick="toggleMemoryLog()"
+        data-tip-title="MEMORY ACTIVITY LOG"
+        data-tip="View a real-time log of all memory operations — what was retrieved, stored, and injected this session.">
+        <span class="memory-log-dot" id="memoryLogDot"></span>MEMORY LOG
       </div>
       <div class="sidebar-indicator ltm" id="ltmIndicator" style="display:none"
         data-tip-title="LTM ACTIVE"
@@ -2117,10 +2237,53 @@ function updateCostDisplay() {
                  : 'var(--text-dim)';
 }
 
+// ── MEMORY LOG ────────────────────────────────────────────────────────────────
+
+let memoryLog = []; // [{time, type, msg}] — type: 'retrieve'|'store'|'load'|'info'|'warn'
+
+function logMemory(type, msg) {
+  const time = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  memoryLog.push({ time, type, msg });
+  // Keep last 200 entries
+  if (memoryLog.length > 200) memoryLog.shift();
+  renderMemoryLog();
+  // Flash the memory log indicator
+  const dot = document.getElementById('memoryLogDot');
+  if (dot) {
+    dot.classList.add('flash');
+    setTimeout(() => dot.classList.remove('flash'), 600);
+  }
+}
+
+function renderMemoryLog() {
+  const list = document.getElementById('memoryLogList');
+  if (!list) return;
+  list.innerHTML = memoryLog.length === 0
+    ? '<div class="memory-log-empty">No memory activity yet this session.</div>'
+    : [...memoryLog].reverse().map(e => `
+        <div class="memory-log-entry ${e.type}">
+          <span class="log-time">${e.time}</span>
+          <span class="log-msg">${escapeHtml(e.msg)}</span>
+        </div>`).join('');
+}
+
+function toggleMemoryLog() {
+  const panel = document.getElementById('memoryLogPanel');
+  const backdrop = document.getElementById('drawerBackdrop');
+  if (!panel) return;
+  // Close other drawers first
+  document.getElementById('amendmentPanel')?.classList.remove('open');
+  document.getElementById('memoryPanel')?.classList.remove('open');
+  const isOpen = panel.classList.contains('open');
+  panel.classList.toggle('open', !isOpen);
+  backdrop.classList.toggle('visible', !isOpen);
+}
+
 // ── LONG-TERM MEMORY (vector store) ─────────────────────────────────────────
 
 async function retrieveMemory(query) {
   if (!_memoryServerEnabled || !_memoryServerUrl) return '';
+  logMemory('retrieve', `Querying archive: "${query.slice(0, 80)}${query.length > 80 ? '...' : ''}"`);
   try {
     const res = await fetch(`${_memoryServerUrl}/retrieve`, {
       method: 'POST',
@@ -2128,31 +2291,47 @@ async function retrieveMemory(query) {
       body: JSON.stringify({ query, top_k: 5 }),
       signal: AbortSignal.timeout(5000)
     });
-    if (!res.ok) return '';
+    if (!res.ok) {
+      logMemory('warn', `Archive query failed — server returned ${res.status}`);
+      return '';
+    }
     const data = await res.json();
-    if (!data.results || data.results.length === 0) return '';
-
+    if (!data.results || data.results.length === 0) {
+      logMemory('info', `Archive query returned nothing relevant — proceeding without LTM context`);
+      return '';
+    }
+    logMemory('retrieve', `Retrieved ${data.results.length} relevant chunk(s) from archive:`);
+    data.results.forEach((r, i) => {
+      logMemory('retrieve', `  [${i+1}] ${(r.score*100).toFixed(0)}% match — ${r.source_type} | ${r.source_ref?.slice(0,50) || ''}`);
+    });
     // Format retrieved chunks as readable context
     return data.results.map((r, i) =>
       `[${i + 1}] (${r.source_type}${r.source_ref ? ' · ' + r.source_ref : ''} · relevance: ${(r.score * 100).toFixed(0)}%)\n${r.content}`
     ).join('\n\n');
   } catch(e) {
-    // Silent fail — memory unavailable shouldn't block dispatch
+    logMemory('warn', `Archive query failed — ${e.message || 'timeout or network error'}`);
     return '';
   }
 }
 
 async function pushToMemory(content, sourceType, sourceRef = '') {
   if (!_memoryServerEnabled || !_memoryServerUrl) return;
+  logMemory('store', `Storing to archive — ${sourceType} | ${sourceRef.slice(0, 60)}`);
   try {
-    await fetch(`${_memoryServerUrl}/store`, {
+    const res = await fetch(`${_memoryServerUrl}/store`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content, source_type: sourceType, source_ref: sourceRef }),
       signal: AbortSignal.timeout(8000)
     });
+    if (res.ok) {
+      const data = await res.json();
+      logMemory('store', `✓ Stored — ID ${data.id} | ${sourceType} | ${sourceRef.slice(0, 60)}`);
+    } else {
+      logMemory('warn', `Store request failed — server returned ${res.status}`);
+    }
   } catch(e) {
-    // Silent fail
+    logMemory('warn', `Store failed — ${e.message || 'timeout or network error'}`);
   }
 }
 
@@ -2348,6 +2527,7 @@ Respond with ONLY the 1-2 sentence summary. Nothing else.`;
     sessionMemory = sessionMemoryEntries.map(e => `· ${e}`).join('\n');
     trimSessionMemory();
     updateMemoryIndicator();
+    logMemory('store', `Session memory updated — entry ${sessionMemoryEntries.length}: "${delta.slice(0, 100)}${delta.length > 100 ? '...' : ''}"`);
 
     // Also push to long-term vector store (fire and forget)
     pushToMemory(delta, 'session', `Session ${new Date().toLocaleDateString('en-GB')}`);
@@ -2509,6 +2689,7 @@ function toggleParty(party) { toggleSeat(party); }
 function closeAllDrawers() {
   document.getElementById('amendmentPanel').classList.remove('open');
   document.getElementById('memoryPanel').classList.remove('open');
+  document.getElementById('memoryLogPanel')?.classList.remove('open');
   document.getElementById('drawerBackdrop').classList.remove('visible');
 }
 
@@ -2712,8 +2893,10 @@ async function autoLoadPriorContext() {
   if (priorSessionContext) return; // already have context from import
 
   let loaded = 0;
+  logMemory('load', 'Session starting — loading institutional memory from archive...');
 
   // ── Load ratified amendments ─────────────────────────────────────────────────
+  logMemory('load', 'Retrieving constitutional record (amendments)...');
   try {
     const res = await fetch(`${_memoryServerUrl}/retrieve`, {
       method: 'POST',
@@ -2737,27 +2920,38 @@ async function autoLoadPriorContext() {
           } catch(e) {}
         });
 
-        // Deduplicate by id, keep ratified over rejected if duplicate
         const seen = new Map();
         reconstituted.forEach(a => {
           const existing = seen.get(a.id);
           if (!existing || a.status === 'accepted') seen.set(a.id, a);
         });
 
-        const loaded_amendments = Array.from(seen.values())
-          .sort((a, b) => a.id - b.id);
+        const loaded_amendments = Array.from(seen.values()).sort((a, b) => a.id - b.id);
 
         if (loaded_amendments.length > 0) {
           amendments = loaded_amendments;
           amendmentCounter = Math.max(...loaded_amendments.map(a => a.id));
           renderAmendments();
           loaded += loaded_amendments.length;
+          const ratified = loaded_amendments.filter(a => a.status === 'accepted').length;
+          const rejected = loaded_amendments.filter(a => a.status === 'rejected').length;
+          logMemory('load', `✓ Constitutional record loaded — ${ratified} ratified, ${rejected} rejected amendment(s)`);
+          loaded_amendments.filter(a => a.status === 'accepted').forEach(a => {
+            logMemory('load', `  Amendment ${toRoman(a.id)}: "${a.text.slice(0, 80)}..."`);
+          });
+        } else {
+          logMemory('load', 'No amendments found in archive — Treaty stands as originally concluded');
         }
+      } else {
+        logMemory('load', 'No amendments found in archive — Treaty stands as originally concluded');
       }
     }
-  } catch(e) {}
+  } catch(e) {
+    logMemory('warn', `Failed to load amendments — ${e.message || 'timeout'}`);
+  }
 
   // ── Load prior session summaries ─────────────────────────────────────────────
+  logMemory('load', 'Retrieving prior session summaries...');
   try {
     const res = await fetch(`${_memoryServerUrl}/retrieve`, {
       method: 'POST',
@@ -2779,6 +2973,9 @@ async function autoLoadPriorContext() {
         priorSessionContext = summaryContext;
         loaded += data.results.length;
 
+        logMemory('load', `✓ ${data.results.length} session summary(ies) loaded as prior context:`);
+        data.results.forEach(r => logMemory('load', `  ${r.source_ref || 'Prior session'}`));
+
         const t = document.getElementById('transcript');
         const notice = document.createElement('div');
         notice.className = 'system-message';
@@ -2786,9 +2983,17 @@ async function autoLoadPriorContext() {
         t.appendChild(notice);
         smartScroll(t);
         showKeyStatus(`✓ ARCHIVE LOADED — ${loaded} RECORDS`);
+      } else {
+        logMemory('load', 'No prior session summaries found — this may be the first session');
       }
     }
-  } catch(e) {}
+  } catch(e) {
+    logMemory('warn', `Failed to load session summaries — ${e.message || 'timeout'}`);
+  }
+
+  if (loaded > 0) {
+    logMemory('load', `Archive load complete — ${loaded} record(s) injected into party prompts`);
+  }
 }
 
 // Treaty system prompt — the full Treaty of Bangor, as concluded 14 March 2026
@@ -3368,6 +3573,10 @@ function rejectAmendment(id) {
 
 async function pushAmendmentToMemory(amend) {
   if (!_memoryServerEnabled || !_memoryServerUrl) return;
+  const statusLabel = amend.status === 'accepted'
+    ? (amend._override ? 'RATIFIED (OVERRIDE)' : 'RATIFIED')
+    : 'REJECTED';
+  logMemory('store', `Storing amendment to archive — Amendment ${toRoman(amend.id)} ${statusLabel}`);
   try {
     const content = JSON.stringify({
       _type: 'amendment',
@@ -3380,10 +3589,7 @@ async function pushAmendmentToMemory(amend) {
       votes: amend.votes || {},
       _override: amend._override || false
     });
-    const statusLabel = amend.status === 'accepted'
-      ? (amend._override ? 'RATIFIED (OVERRIDE)' : 'RATIFIED')
-      : 'REJECTED';
-    await fetch(`${_memoryServerUrl}/store`, {
+    const res = await fetch(`${_memoryServerUrl}/store`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -3393,8 +3599,13 @@ async function pushAmendmentToMemory(amend) {
       }),
       signal: AbortSignal.timeout(5000)
     });
+    if (res.ok) {
+      logMemory('store', `✓ Amendment ${toRoman(amend.id)} committed to constitutional archive`);
+    } else {
+      logMemory('warn', `Amendment ${toRoman(amend.id)} archive store failed — ${res.status}`);
+    }
   } catch(e) {
-    // Silent fail — amendment is still ratified locally
+    logMemory('warn', `Amendment ${toRoman(amend.id)} archive store failed — ${e.message || 'timeout'}`);
   }
 }
 

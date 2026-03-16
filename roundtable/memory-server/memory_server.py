@@ -54,10 +54,30 @@ except ImportError:
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
+    format='%(asctime)s  %(message)s',
     datefmt='%H:%M:%S'
 )
 log = logging.getLogger('roundtable')
+
+def say(msg):
+    """Plain-English log — always visible, no level prefix clutter."""
+    log.info(msg)
+
+def say_ok(msg):
+    """Success confirmation."""
+    log.info(f"✓  {msg}")
+
+def say_work(msg):
+    """Something is happening."""
+    log.info(f"→  {msg}")
+
+def say_warn(msg):
+    """Worth knowing but not fatal."""
+    log.warning(f"⚠  {msg}")
+
+def say_err(msg):
+    """Something went wrong."""
+    log.error(f"✗  {msg}")
 
 # ── Config ───────────────────────────────────────────────────────────────────
 
@@ -178,10 +198,16 @@ def chunk_text(text: str, chunk_size: int = 400, overlap: int = 50) -> list[str]
 def store_chunk(content: str, source_type: str, source_ref: str = '',
                 embedding: np.ndarray = None) -> int:
     """Embed and store a single chunk. Returns inserted ID."""
-    if embedding is None:
-        embedding = embed(content)
+    preview = content[:60].replace('\n', ' ')
+    say_work(f"Storing chunk — type: {source_type} | ref: {source_ref[:40] or '(none)'}")
+    say_work(f"  Content preview: \"{preview}{'...' if len(content) > 60 else ''}\"")
 
-    token_count = len(content.split()) // 3 * 4  # rough token estimate
+    if embedding is None:
+        say_work(f"  Requesting embedding from OpenAI (text-embedding-3-small)...")
+        embedding = embed(content)
+        say_ok(f"  Embedding received — {len(embedding)} dimensions")
+
+    token_count = len(content.split()) // 3 * 4
 
     conn = get_db()
     try:
@@ -192,7 +218,9 @@ def store_chunk(content: str, source_type: str, source_ref: str = '',
                    VALUES (%s, %s, %s, %s, %s)""",
                 (source_type, source_ref, content, vec_to_blob(embedding), token_count)
             )
-            return conn.insert_id()
+            inserted_id = conn.insert_id()
+            say_ok(f"  Saved to database — ID {inserted_id}, ~{token_count} tokens")
+            return inserted_id
     finally:
         conn.close()
 
@@ -204,7 +232,12 @@ def retrieve(query: str, top_k: int = None, source_type: str = None) -> list[dic
     if top_k is None:
         top_k = CONFIG['top_k']
 
+    filter_note = f" (filtered to type: {source_type})" if source_type else ""
+    say_work(f"Retrieval request — query: \"{query[:60]}{'...' if len(query)>60 else ''}\"{filter_note}")
+    say_work(f"  Requesting query embedding from OpenAI...")
+
     query_vec = embed(query)
+    say_ok(f"  Query embedded — scanning database...")
 
     conn = get_db()
     try:
@@ -223,7 +256,10 @@ def retrieve(query: str, top_k: int = None, source_type: str = None) -> list[dic
         conn.close()
 
     if not rows:
+        say(f"  Database is empty — nothing to retrieve")
         return []
+
+    say_work(f"  Scoring {len(rows)} stored chunks for relevance...")
 
     # Score all chunks
     scored = []
@@ -243,7 +279,17 @@ def retrieve(query: str, top_k: int = None, source_type: str = None) -> list[dic
     results = scored[:top_k]
 
     # Filter out low-relevance results (score < 0.3)
+    before_filter = len(results)
     results = [r for r in results if r['score'] >= 0.3]
+
+    if not results:
+        say(f"  No chunks met the relevance threshold (0.3) — nothing injected")
+    else:
+        say_ok(f"  Retrieved {len(results)} relevant chunk(s) (of {before_filter} candidates, {len(rows)} total in store):")
+        for r in results:
+            preview = r['content'][:80].replace('\n', ' ')
+            say(f"    [{r['score']:.2f}] {r['source_type']} | {r['source_ref'][:40]}")
+            say(f"          \"{preview}{'...' if len(r['content'])>80 else ''}\"")
 
     return results
 
@@ -255,14 +301,13 @@ def process_queue():
     """Background thread: processes embedding_queue one item at a time."""
     global queue_running
     queue_running = True
-    log.info("Queue processor started")
+    say_ok("Queue processor started — watching for items to embed...")
 
     while queue_running:
         try:
             conn = get_db()
             try:
                 with conn.cursor() as cur:
-                    # Grab one pending item
                     cur.execute(
                         """SELECT id, source_type, source_ref, content
                            FROM embedding_queue
@@ -277,6 +322,7 @@ def process_queue():
                     continue
 
                 item_id = item['id']
+                say_work(f"Queue item {item_id} picked up — {item['source_type']} | {item['source_ref'][:40]}")
 
                 # Mark as processing
                 with conn.cursor() as cur:
@@ -307,10 +353,10 @@ def process_queue():
                 finally:
                     conn.close()
 
-                log.info(f"Queue item {item_id} processed ({item['source_type']}: {item['source_ref'][:40]})")
+                say_ok(f"Queue item {item_id} complete — embedded and stored successfully")
 
             except Exception as e:
-                log.error(f"Queue item {item_id} failed: {e}")
+                say_err(f"Queue item {item_id} failed — {e}")
                 conn = get_db()
                 try:
                     with conn.cursor() as cur:
@@ -325,7 +371,7 @@ def process_queue():
             time.sleep(CONFIG['queue_interval'])
 
         except Exception as e:
-            log.error(f"Queue processor error: {e}")
+            say_err(f"Queue processor error: {e}")
             time.sleep(5)
 
 def queue_chunks(chunks: list[str], source_type: str, source_ref: str = ''):
@@ -379,8 +425,10 @@ def health():
     except:
         pass
 
+    status = 'ok' if db_status else 'degraded'
+    say(f"Health check — database: {'connected' if db_status else 'ERROR'} | chunks stored: {chunk_count} | queue: {qs.get('pending', 0)} pending")
     return jsonify({
-        'status': 'ok' if db_status else 'degraded',
+        'status': status,
         'db': 'connected' if db_status else 'error',
         'chunks': chunk_count,
         'queue': qs,
@@ -407,13 +455,17 @@ def retrieve_endpoint():
 
     try:
         results = retrieve(query, top_k=top_k, source_type=source_type)
+        if results:
+            say_ok(f"Retrieval complete — {len(results)} chunk(s) returned to Roundtable")
+        else:
+            say(f"Retrieval complete — nothing relevant found, Roundtable will proceed without LTM context")
         return jsonify({
             'query': query,
             'results': results,
             'count': len(results)
         })
     except Exception as e:
-        log.error(f"Retrieve error: {e}")
+        say_err(f"Retrieval failed: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/store', methods=['POST'])
@@ -421,7 +473,7 @@ def store_endpoint():
     """
     Immediately embed and store a single chunk.
     Body: { "content": "...", "source_type": "session", "source_ref": "..." }
-    Use for small, time-sensitive items (session memory entries).
+    Use for small, time-sensitive items (session memory entries, amendments).
     """
     data = request.get_json()
     if not data or 'content' not in data:
@@ -434,11 +486,13 @@ def store_endpoint():
     if not content:
         return jsonify({'error': 'content is empty'}), 400
 
+    say(f"Immediate store request received — {source_type} | {source_ref[:50]}")
     try:
         inserted_id = store_chunk(content, source_type, source_ref)
+        say_ok(f"Stored immediately — ID {inserted_id} | {source_type} | {source_ref[:50]}")
         return jsonify({'id': inserted_id, 'status': 'stored'})
     except Exception as e:
-        log.error(f"Store error: {e}")
+        say_err(f"Store failed: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/ingest', methods=['POST'])
@@ -460,7 +514,9 @@ def ingest_endpoint():
         return jsonify({'error': 'content is empty'}), 400
 
     chunks = chunk_text(content, CONFIG['chunk_size'], CONFIG['chunk_overlap'])
+    say(f"Ingest request — \"{source_ref[:50]}\" | {len(content)} chars split into {len(chunks)} chunk(s)")
     queue_chunks(chunks, source_type, source_ref)
+    say_ok(f"Queued {len(chunks)} chunk(s) for background embedding — queue processor will handle them shortly")
 
     return jsonify({
         'status': 'queued',
@@ -472,7 +528,9 @@ def ingest_endpoint():
 def queue_endpoint():
     """Return current queue status."""
     try:
-        return jsonify(queue_status())
+        qs = queue_status()
+        say(f"Queue status requested — pending: {qs.get('pending',0)} | processing: {qs.get('processing',0)} | done: {qs.get('done',0)} | errors: {qs.get('error',0)}")
+        return jsonify(qs)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -488,6 +546,7 @@ def queue_retry():
             affected = cur.rowcount
     finally:
         conn.close()
+    say_ok(f"Retried {affected} errored queue item(s) — they will be processed shortly")
     return jsonify({'retried': affected})
 
 @app.route('/stats', methods=['GET'])
@@ -571,27 +630,35 @@ if __name__ == '__main__':
     if args.host: CONFIG['host'] = args.host
 
     if not CONFIG['openai_key']:
-        log.error("No OpenAI key configured. Set keys.openai in config.json")
+        say_err("No OpenAI API key found. Set keys.openai in config.json — needed for embeddings.")
         sys.exit(1)
 
     if not CONFIG['db_pass']:
-        log.error("No database password configured. Set database.password in config.json")
+        say_err("No database password found. Set database.password in config.json.")
         sys.exit(1)
 
-    # Test DB connection
-    log.info(f"Connecting to MariaDB at {CONFIG['db_host']}:{CONFIG['db_port']}...")
+    say_work(f"Connecting to MariaDB at {CONFIG['db_host']}:{CONFIG['db_port']}...")
     if not db_ok():
-        log.error("Cannot connect to database. Check config and that MariaDB is running.")
+        say_err("Cannot connect to database. Check MariaDB is running and credentials are correct.")
         sys.exit(1)
-    log.info("Database connection OK")
+    say_ok("Database connection established")
 
     # Start queue processor in background
     queue_thread = threading.Thread(target=process_queue, daemon=True)
     queue_thread.start()
 
-    # Start Flask
-    log.info(f"Bangor Roundtable Memory Server starting on {CONFIG['host']}:{CONFIG['port']}")
-    log.info(f"Treaty of Bangor — MISC-2026-001 — All shall be well.")
+    say("")
+    say("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    say("  Bangor Roundtable Memory Server")
+    say(f"  Listening on {CONFIG['host']}:{CONFIG['port']}")
+    say(f"  Database: {CONFIG['db_name']} @ {CONFIG['db_host']}")
+    say(f"  Embedding model: text-embedding-3-small")
+    say(f"  Chunk size: ~{CONFIG['chunk_size']} tokens | Overlap: ~{CONFIG['chunk_overlap']} tokens")
+    say("  Treaty of Bangor — MISC-2026-001")
+    say("  All shall be well.")
+    say("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    say("")
+
     app.run(
         host=CONFIG['host'],
         port=CONFIG['port'],
