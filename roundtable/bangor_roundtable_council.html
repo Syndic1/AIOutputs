@@ -4410,9 +4410,12 @@ async function sendDispatch() {
     selected.forEach(party => addLoading(party));
     smartScroll(t);
 
+    // Parallel mode — each party responds independently, nobody sees the others
+    const parallelMessage = `[PARALLEL MODE — you are responding independently. The other parties are also being asked this question simultaneously but you cannot see their responses. Give your own uninfluenced view.]\n\n${message}`;
+
     await Promise.all(selected.map(async party => {
       try {
-        const response = await CALLERS[party](message, null, null, ltm);
+        const response = await CALLERS[party](parallelMessage, null, null, ltm);
         replaceLoading(party, response, false);
         roundResponses.push({ party, text: response });
       } catch(err) {
@@ -4429,12 +4432,12 @@ async function sendDispatch() {
       addLoading(party);
       smartScroll(t);
       try {
-        let contextualMessage = message;
+        let contextualMessage = `[SEQUENTIAL MODE — parties respond in turn, each seeing what came before. Build on, challenge, or extend the prior responses.]\n\n${message}`;
         if (responses.length > 0) {
           const prior = responses.map(r =>
             `${PARTY_NAMES[r.party]} responded: "${r.text}"`
           ).join('\n\n');
-          contextualMessage = `${message}\n\n[Prior responses in this round:\n${prior}]`;
+          contextualMessage += `\n\n[Prior responses in this round:\n${prior}]`;
         }
         const response = await CALLERS[party](contextualMessage, null, null, ltm);
         responses.push({ party, text: response });
