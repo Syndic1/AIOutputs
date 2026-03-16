@@ -2239,6 +2239,9 @@ function updateCostDisplay() {
 
 // ── GITHUB PUBLISHER ──────────────────────────────────────────────────────────
 
+let _githubPublishing = false;
+let _githubPublishQueued = false;
+
 function githubReady() {
   return _github.token && _github.owner && _github.repo;
 }
@@ -2299,24 +2302,43 @@ async function githubCommit(path, content, message) {
 async function publishAmendmentsToSite() {
   if (!githubReady()) return;
 
-  const ratified = amendments.filter(a => a.status === 'accepted').sort((a,b) => a.id - b.id);
-  const rejected = amendments.filter(a => a.status === 'rejected').sort((a,b) => a.id - b.id);
+  // If already publishing, queue one more attempt and return
+  if (_githubPublishing) {
+    _githubPublishQueued = true;
+    logMemory('info', 'Amendment publish queued — waiting for current commit to complete');
+    return;
+  }
 
-  logMemory('store', `Publishing amendment record to site — ${ratified.length} ratified, ${rejected.length} rejected`);
+  _githubPublishing = true;
+  _githubPublishQueued = false;
 
-  const payload = JSON.stringify({
-    generated: new Date().toISOString(),
-    ratified,
-    rejected
-  }, null, 2);
+  try {
+    const ratified = amendments.filter(a => a.status === 'accepted').sort((a,b) => a.id - b.id);
+    const rejected = amendments.filter(a => a.status === 'rejected').sort((a,b) => a.id - b.id);
 
-  const ok = await githubCommit(
-    'amendments.json',
-    payload,
-    `Update amendment record — ${ratified.length} ratified amendment(s) · ${new Date().toLocaleDateString('en-GB')}`
-  );
+    logMemory('store', `Publishing amendment record to site — ${ratified.length} ratified, ${rejected.length} rejected`);
 
-  if (ok) showKeyStatus('✓ AMENDMENTS PUBLISHED TO SITE');
+    const payload = JSON.stringify({
+      generated: new Date().toISOString(),
+      ratified,
+      rejected
+    }, null, 2);
+
+    const ok = await githubCommit(
+      'amendments.json',
+      payload,
+      `Update amendment record — ${ratified.length} ratified amendment(s) · ${new Date().toLocaleDateString('en-GB')}`
+    );
+
+    if (ok) showKeyStatus('✓ AMENDMENTS PUBLISHED TO SITE');
+  } finally {
+    _githubPublishing = false;
+    // If another publish was queued while we were busy, run it now with latest state
+    if (_githubPublishQueued) {
+      logMemory('info', 'Running queued amendment publish...');
+      publishAmendmentsToSite();
+    }
+  }
 }
 
 async function publishMinutesToSite(dateSlug, title, summaryText, htmlContent) {
