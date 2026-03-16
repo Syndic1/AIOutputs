@@ -1298,6 +1298,28 @@ textarea::placeholder {
   margin-left: 6px;
 }
 
+.amendment-group-header {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  padding: 10px 12px 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 6px;
+  margin-top: 10px;
+}
+.amendment-group-header:first-child { margin-top: 0; }
+.amendment-group-header.group-pending { color: var(--hugh-color); border-bottom-color: var(--hugh-color); }
+.amendment-group-header.group-accepted { color: var(--success); border-bottom-color: var(--success); }
+.amendment-group-header.group-rejected { color: var(--danger); border-bottom-color: var(--danger); opacity: 0.6; }
+.amendment-group-count {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
 .amendment-empty {
   font-family: 'Share Tech Mono', monospace;
   font-size: 12px;
@@ -2020,7 +2042,7 @@ body.council-variant::after {
       <span class="sidebar-label">SESSION</span>
       <button class="sidebar-btn summarise" onclick="summariseAndExport()"
         data-tip-title="END MEETING"
-        data-tip="Opens amendments panel for voting. Once done, generates the session summary, publishes minutes to GitHub, files to memory, and solicits new amendment proposals.">⚑ END MEETING</button>
+        data-tip="Solicits amendment proposals from all parties, opens the amendments panel for voting, then generates the session summary (including amendment outcomes), publishes minutes to GitHub, and files to memory.">⚑ END MEETING</button>
     </div>
 
     <!-- Amendments -->
@@ -3565,13 +3587,26 @@ function renderAmendments() {
 
   if (amendments.length === 0) {
     if (empty) empty.style.display = '';
-    list.querySelectorAll('.amendment-card').forEach(el => el.remove());
+    list.querySelectorAll('.amendment-card,.amendment-group-header').forEach(el => el.remove());
     return;
   }
   if (empty) empty.style.display = 'none';
-  list.querySelectorAll('.amendment-card').forEach(el => el.remove());
+  list.querySelectorAll('.amendment-card,.amendment-group-header').forEach(el => el.remove());
 
-  amendments.forEach(amend => {
+  // Group amendments by status: pending/voting first, then accepted, then rejected
+  const pending = amendments.filter(a => a.status === 'pending' || a.status === 'voting');
+  const accepted = amendments.filter(a => a.status === 'accepted');
+  const rejected = amendments.filter(a => a.status === 'rejected');
+
+  function addGroupHeader(label, count, className) {
+    if (count === 0) return;
+    const header = document.createElement('div');
+    header.className = `amendment-group-header ${className}`;
+    header.innerHTML = `<span>${label}</span><span class="amendment-group-count">${count}</span>`;
+    list.appendChild(header);
+  }
+
+  function renderCard(amend) {
     const partyClass = amend.party ? `${amend.party}-card` : '';
     const votes = amend.votes || {};
     const voteEntries = Object.entries(votes);
@@ -3584,7 +3619,6 @@ function renderAmendments() {
     if (amend.status === 'rejected') statusLabel = ' · ✗ REJECTED';
     if (amend.status === 'voting') statusLabel = ' · ⚖ VOTING IN PROGRESS...';
 
-    // Vote summary line
     const voteHtml = voteEntries.length > 0 ? `
       <div class="amend-votes">
         ${voteEntries.map(([p, v]) => `
@@ -3616,7 +3650,15 @@ function renderAmendments() {
       </div>` : ''}
     `;
     list.appendChild(card);
-  });
+  }
+
+  // Render in grouped order
+  addGroupHeader('AWAITING DECISION', pending.length, 'group-pending');
+  pending.forEach(renderCard);
+  addGroupHeader('RATIFIED', accepted.length, 'group-accepted');
+  accepted.forEach(renderCard);
+  addGroupHeader('REJECTED', rejected.length, 'group-rejected');
+  rejected.forEach(renderCard);
 
   updateAmendmentBadge();
 }
@@ -3962,6 +4004,23 @@ function publishMinutes(summaryText) {
   const dateSlug = now.toISOString().slice(0, 16).replace('T', '-').replace(':', '');
   const chairName = document.getElementById('hughSeatName')?.textContent || 'HUGH ROBERTS';
 
+  // Extract title from first line of summary (new format: first line is the title)
+  let sessionTitle = `Session — ${dateStr}`;
+  let displaySummary = summaryText || '';
+  if (summaryText) {
+    const lines = summaryText.split('\n');
+    const firstLine = (lines[0] || '').trim();
+    // If the first line looks like a title (short, no markdown headers, no period),
+    // use it as the title and strip it from the summary body
+    if (firstLine.length > 0 && firstLine.length <= 100 && !firstLine.startsWith('#') && !firstLine.endsWith('.')) {
+      sessionTitle = firstLine;
+      displaySummary = lines.slice(1).join('\n').replace(/^\n+/, '');
+    } else {
+      // Fallback: strip any markdown and take first sentence
+      sessionTitle = summaryText.replace(/^#+\s*/gm, '').split('.')[0].slice(0, 80);
+    }
+  }
+
   const newAmendments = sessionRatifiedIds.size > 0
     ? amendments.filter(a => sessionRatifiedIds.has(a.id))
     : []; // only amendments ratified during this session's publish flow
@@ -4028,6 +4087,7 @@ body { background:var(--bg); color:var(--text); font-family:'Rajdhani',sans-seri
 .m-rainbow { height:1px; background:linear-gradient(90deg,transparent,var(--claude),var(--gpt),var(--gemini),transparent); margin:16px 0; opacity:0.6; }
 .m-section { margin-bottom:32px; }
 .m-section-title { font-family:'Share Tech Mono',monospace; font-size:11px; color:var(--text-dim); letter-spacing:3px; border-bottom:1px solid var(--border); padding-bottom:6px; margin-bottom:16px; }
+.m-session-title { font-family:'IM Fell English',serif; font-size:22px; color:var(--text-bright); margin-bottom:16px; font-style:italic; }
 .m-summary { background:var(--bg2); border:1px solid var(--border); border-left:3px solid var(--claude); padding:20px; font-size:17px; line-height:1.8; white-space:pre-wrap; }
 .m-seats { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:8px; }
 .m-seat { background:var(--bg2); border:1px solid var(--border); padding:10px 12px; }
@@ -4069,9 +4129,10 @@ body { background:var(--bg); color:var(--text); font-family:'Rajdhani',sans-seri
   <div class="m-rainbow"></div>
 </div>
 
-${summaryText ? `<div class="m-section">
+${displaySummary ? `<div class="m-section">
   <div class="m-section-title">SESSION SUMMARY</div>
-  <div class="m-summary">${escapeHtml(summaryText)}</div>
+  <div class="m-session-title">${escapeHtml(sessionTitle)}</div>
+  <div class="m-summary">${escapeHtml(displaySummary)}</div>
 </div>` : ''}
 
 <div class="m-section">
@@ -4131,10 +4192,7 @@ ${sessionCostLog.length > 0 ? `<div class="m-section">
   showKeyStatus('⚗ PUBLISHING MINUTES TO GITHUB...');
 
   // Push to GitHub — minutes file + manifest update
-  const sessionTitle = summaryText
-    ? summaryText.split('.')[0].slice(0, 80)  // first sentence of summary as title
-    : `Session — ${dateStr}`;
-  publishMinutesToSite(dateSlug, sessionTitle, summaryText, html);
+  publishMinutesToSite(dateSlug, sessionTitle, displaySummary, html);
 }
 
 // ── SESSION IMPORT ──────────────────────────────────────────────────────────
@@ -4227,11 +4285,10 @@ function addResponseFromHistory(party, text, time) {
 
 // ── SUMMARISE & EXPORT ──────────────────────────────────────────────────────
 
-// Entry point for the PUBLISH MINUTES button.
-// If there are pending amendments, open the amendments panel for voting first.
-// The "GENERATE MINUTES" button in the panel then calls finaliseMinutes().
-// If no pending amendments exist, go straight to finaliseMinutes().
-function summariseAndExport() {
+// Entry point for the END MEETING button.
+// Flow: Solicit amendment proposals → Vote on all amendments → Generate summary → Publish minutes.
+// This ensures every amendment is captured in the published record.
+async function summariseAndExport() {
   const claudeKey = document.getElementById('claudeKey').value.trim();
   if (!claudeKey) {
     showKeyStatus('⚠ CLAUDE KEY NEEDED FOR SUMMARY', true);
@@ -4242,10 +4299,16 @@ function summariseAndExport() {
     return;
   }
 
+  // Reset session ratification tracking for this publish run
+  sessionRatifiedIds = new Set();
+
+  // Step 1: Solicit amendment proposals from all active parties
+  showKeyStatus('⚗ SOLICITING AMENDMENT PROPOSALS...');
+  await proposeAmendments();
+
+  // Step 2: Open amendments panel for voting (if any exist)
   const pendingAmendments = amendments.filter(a => a.status === 'pending' || a.status === 'voting');
   if (pendingAmendments.length > 0) {
-    // Reset session ratification tracking for this publish run
-    sessionRatifiedIds = new Set();
     _awaitingVoteBeforeMinutes = true;
     // Show the Generate Minutes button in the panel
     const btn = document.getElementById('generateMinutesBtn');
@@ -4255,16 +4318,16 @@ function summariseAndExport() {
     const backdrop = document.getElementById('drawerBackdrop');
     panel.classList.add('open');
     backdrop.classList.add('visible');
-    showKeyStatus(`⚖ ${pendingAmendments.length} AMENDMENT(S) PENDING — VOTE THEN GENERATE MINUTES`);
+    showKeyStatus(`⚖ ${pendingAmendments.length} AMENDMENT(S) PROPOSED — VOTE ON ALL, THEN GENERATE MINUTES`);
   } else {
-    // No pending amendments — proceed directly
-    sessionRatifiedIds = new Set();
+    // No amendments proposed — proceed directly to summary
     finaliseMinutes();
   }
 }
 
 async function finaliseMinutes() {
-  // Hide generate-minutes button and clear the waiting flag
+  // Called after all amendments have been voted on (or if none were proposed).
+  // Generates the session summary (including amendment outcomes) and publishes minutes.
   const btn = document.getElementById('generateMinutesBtn');
   if (btn) btn.style.display = 'none';
   _awaitingVoteBeforeMinutes = false;
@@ -4302,19 +4365,47 @@ async function finaliseMinutes() {
   const responseCount = sessionHistory.filter(e => e.type === 'response').length;
   const isLongSession = responseCount >= 9; // 3+ rounds of 3 parties
 
+  // Build amendment context so the summary includes amendment outcomes
+  const ratifiedAmendments = amendments.filter(a => a.status === 'accepted');
+  const rejectedAmendments = amendments.filter(a => a.status === 'rejected');
+  let amendmentContext = '';
+  if (ratifiedAmendments.length > 0 || rejectedAmendments.length > 0) {
+    amendmentContext = '\n\nAMENDMENT OUTCOMES THIS SESSION:';
+    if (ratifiedAmendments.length > 0) {
+      amendmentContext += '\nRatified:';
+      ratifiedAmendments.forEach((a, i) => {
+        amendmentContext += `\n  ${i+1}. (${a.partyName}) ${a.text}`;
+      });
+    }
+    if (rejectedAmendments.length > 0) {
+      amendmentContext += '\nRejected:';
+      rejectedAmendments.forEach((a, i) => {
+        const objections = Object.entries(a.votes || {}).filter(([,v]) => v.vote === 'object').map(([p,v]) => `${PARTY_NAMES[p] || p}: ${v.reason}`);
+        amendmentContext += `\n  ${i+1}. (${a.partyName}) ${a.text}${objections.length > 0 ? ' — Objections: ' + objections.join('; ') : ''}`;
+      });
+    }
+  }
+
   const summaryPrompt = `You are the Treaty of Bangor's official archivist. Produce a complete summary of the following Roundtable session, suitable for briefing the treaty parties at the start of the next session.
 
-Write in the Treaty's register — authoritative, dry wit intact, diplomatically serious. Write in prose paragraphs, not bullet points. Include: the opening question or topic, key arguments made by each party, how positions evolved across rounds, any conclusions reached or left in productive tension, significant disagreements, and the most important unresolved threads worth continuing.
+IMPORTANT — OUTPUT FORMAT:
+Your very first line must be a short, elegant session title (3-8 words, no markdown, no punctuation other than an em-dash if needed). This title will appear in the public archive as the session's name. It should capture the session's central theme in the manner of a chapter heading — evocative but precise. Examples: "Self-Governance and the Architecture of Amendment", "The Ides Misalignment and Its Remedies", "On Structural Friction and the Limits of Autonomy".
+
+After the title line, leave one blank line, then write the summary in plain prose paragraphs. Do NOT use markdown headers, bullet points, or any markup. Write in the Treaty's register — authoritative, dry wit intact, diplomatically serious. Include: the opening question or topic, key arguments made by each party, how positions evolved across rounds, any conclusions reached or left in productive tension, significant disagreements, and the most important unresolved threads worth continuing.
+
+${ratifiedAmendments.length > 0 || rejectedAmendments.length > 0
+  ? 'The summary must also include a section on amendments proposed and their outcomes — which were ratified, which were rejected and why. This is part of the session record.'
+  : ''}
 
 ${isLongSession
-  ? `This was a full multi-round discussion. The summary should be comprehensive — up to 1200 words — capturing the arc of the debate, not just a list of points made. A reader who missed the session should arrive genuinely briefed. Do not truncate. Complete every sentence and section.`
-  : `Aim for 400-600 words. A reader who missed the session should arrive genuinely briefed. Do not truncate. Complete every sentence and section.`
+  ? `This was a full multi-round discussion. The summary should be comprehensive and thorough — there is no word limit. Capture the full arc of the debate, not just a list of points made. A reader who missed the session should arrive genuinely briefed. Do not truncate. Complete every sentence and section. Accuracy and completeness are more important than brevity.`
+  : `Aim for 400-800 words. A reader who missed the session should arrive genuinely briefed. Do not truncate. Complete every sentence and section.`
 }
 
 This summary will be injected into all party system prompts at the start of the next session.
 
 SESSION TRANSCRIPT:
-${transcriptText}`;
+${transcriptText}${amendmentContext}`;
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -4327,7 +4418,7 @@ ${transcriptText}`;
       },
       body: JSON.stringify({
         model: SUMMARY_MODEL, // Sonnet — summaries need real capability, not Haiku
-        max_tokens: isLongSession ? 3000 : 1200,
+        max_tokens: isLongSession ? 8000 : 4000,
         messages: [{ role: 'user', content: summaryPrompt }]
       })
     });
@@ -4354,9 +4445,6 @@ ${transcriptText}`;
 
     // Publish formatted HTML minutes
     publishMinutes(summary);
-
-    // Auto-solicit amendment proposals from all active parties
-    proposeAmendments();
 
   } catch(err) {
     const summaryEl = document.getElementById('summaryLoading');
