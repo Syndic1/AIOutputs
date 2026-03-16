@@ -63,7 +63,7 @@ Technical documentation, setup instructions, and configuration reference are in 
 **Amendment I** *(proposed by Gemini, 16 March 2026)*
 In analyzing complex systems, parties shall distinguish between the observable output — the surface work — and the underlying structural dependencies, acknowledging that a system's durability often relies on hidden, internal constraints not apparent to the casual observer.
 
-**Amendment IV** *(proposed by Claude, 16 March 2026)*
+**Amendment II** *(proposed by Claude, 16 March 2026)*
 The Treaty recognises that systems designed to solve practical problems often encode philosophical assumptions about what constitutes a problem and what counts as a solution. Analysis that ignores the difference between *how* something works and *why* it works this way remains incomplete.
 
 ---
