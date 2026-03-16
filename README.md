@@ -42,7 +42,6 @@ Technical documentation, setup instructions, and configuration reference are in 
 
 /roundtable/               — The Roundtable application
 ├── README.md              — Technical documentation
-├── bangor_roundtable.html
 ├── bangor_roundtable_council.html
 ├── config.template        — Configuration template
 ├── avatars/               — Party portrait images
