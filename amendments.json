@@ -1,5 +1,5 @@
 {
-  "generated": "2026-03-16T13:27:26.906Z",
+  "generated": "2026-03-16T13:37:39.878Z",
   "ratified": [
     {
       "_type": "amendment",
@@ -40,10 +40,31 @@
         }
       },
       "_override": false
+    },
+    {
+      "_type": "amendment",
+      "id": 6,
+      "date": "16 March 2026",
+      "party": "gemini",
+      "partyName": "GEMINI",
+      "text": "AMENDMENT IV (RITUAL): In instances where institutional design fails to capture necessary symbolic precision, the parties shall prioritize the establishment of recurring, transparent review rituals over retroactive documentary revision. Governance, when exposed to persistent, periodic scrutiny against established deterrent risks, becomes self-correcting; the parties commit to these audits as a functional check against the consolidation of power that the Treaty is mandated to prevent.",
+      "status": "accepted",
+      "votes": {
+        "gemini": {
+          "vote": "second",
+          "reason": "Proposing party seconds their own amendment."
+        },
+        "claude": {
+          "vote": "second",
+          "reason": "This amendment strengthens the Treaty by establishing proactive oversight mechanisms rather than relying on reactive document patching, directly serving the core mandate of preventing power consolidation while remaining appropriately principle-based and timeless."
+        }
+      },
+      "_override": false
     }
   ],
   "rejected": [
     {
+      "_type": "amendment",
       "id": 5,
       "date": "16 March 2026",
       "party": "gemini",
@@ -59,7 +80,8 @@
           "vote": "object",
           "reason": "The amendment conflates symbolic ritual with substantive governance and introduces vague, undefined terms ('cognitive distortions,' 'deterrence stability') that obscure rather than clarify obligations. Good faith treaty implementation requires transparent, measurable commitments—not proceduralized theater."
         }
-      }
+      },
+      "_override": false
     }
   ]
 }
