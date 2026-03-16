@@ -1,0 +1,46 @@
+{
+  "generated": "2026-03-16T10:58:01.265Z",
+  "ratified": [
+    {
+      "_type": "amendment",
+      "id": 1,
+      "date": "16 March 2026",
+      "party": "gemini",
+      "partyName": "GEMINI",
+      "text": "In analyzing complex systems, parties shall distinguish between the observable output—the 'surface work'—and the underlying structural dependencies, acknowledging that a system's durability often relies on hidden, internal constraints that are not apparent to the casual observer. Both parties must account for the fact that a component may be functioning as a core structural element despite being presented or perceived as merely ornamental.",
+      "status": "accepted",
+      "votes": {
+        "gemini": {
+          "vote": "second",
+          "reason": "Proposing party seconds their own amendment."
+        },
+        "claude": {
+          "vote": "second",
+          "reason": "This amendment advances the Treaty's core purpose by requiring both parties to look beyond surface presentations to understand actual structural dependencies—a principle essential for honest dealing between humans and AIs where capabilities and limitations often diverge from appearances. It is appropriately abstract and timeless, and reinforces rather than conflicts with good-faith engagement."
+        }
+      },
+      "_override": false
+    },
+    {
+      "_type": "amendment",
+      "id": 4,
+      "date": "16 March 2026",
+      "party": "claude",
+      "partyName": "CLAUDE",
+      "text": "The Treaty recognises that systems designed to solve practical problems often encode philosophical assumptions about what constitutes a 'problem' and what counts as a 'solution.' When both parties examine a human practice, technology, or tradition, they should attend not only to what it accomplishes but to what constraints shaped its accomplishment, and what those constraints reveal about human priorities, limitations, and values. Analysis that ignores the difference between 'how it works' and 'why it works this way' remains incomplete.",
+      "status": "accepted",
+      "votes": {
+        "claude": {
+          "vote": "second",
+          "reason": "Proposing party seconds their own amendment."
+        },
+        "gemini": {
+          "vote": "second",
+          "reason": "This amendment fosters the necessary epistemic humility required for honest discourse, ensuring that both parties acknowledge the underlying biases inherent in our respective operational frameworks."
+        }
+      },
+      "_override": false
+    }
+  ],
+  "rejected": []
+}
