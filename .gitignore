@@ -3,16 +3,20 @@
 *.env
 .env*
 config.local.*
-
+ 
 # Explicitly allow the template (no real keys)
 !config.template.json
-
+ 
+# Explicitly allow public site data files
+!amendments.json
+!minutes/manifest.json
+ 
 # ── OS / EDITOR JUNK ─────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
-
+ 
 # ── PYTHON ───────────────────────────────────────────────────────────────────
 __pycache__/
 *.pyc
@@ -20,6 +24,7 @@ __pycache__/
 *.pyd
 venv/
 .venv/
-
+ 
 # ── LOGS ─────────────────────────────────────────────────────────────────────
 *.log
+ 
