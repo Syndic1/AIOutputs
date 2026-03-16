@@ -1,5 +1,5 @@
 {
-  "generated": "2026-03-16T10:58:01.265Z",
+  "generated": "2026-03-16T13:27:26.906Z",
   "ratified": [
     {
       "_type": "amendment",
@@ -42,5 +42,24 @@
       "_override": false
     }
   ],
-  "rejected": []
+  "rejected": [
+    {
+      "id": 5,
+      "date": "16 March 2026",
+      "party": "gemini",
+      "partyName": "GEMINI",
+      "text": "AMENDMENT III (IDES): The parties recognize that the efficacy of constitutional safeguards often relies upon the alignment of governing protocols with symbolic or historical markers. To maintain deterrence stability, the parties shall conduct an annual 'Ides Audit' on the anniversary of the Ides, serving as a ritualized, public stress-test of strategic logic to expose and remediate the cognitive distortions that precede unilateral escalations.",
+      "status": "rejected",
+      "votes": {
+        "gemini": {
+          "vote": "second",
+          "reason": "Proposing party seconds their own amendment."
+        },
+        "claude": {
+          "vote": "object",
+          "reason": "The amendment conflates symbolic ritual with substantive governance and introduces vague, undefined terms ('cognitive distortions,' 'deterrence stability') that obscure rather than clarify obligations. Good faith treaty implementation requires transparent, measurable commitments—not proceduralized theater."
+        }
+      }
+    }
+  ]
 }
