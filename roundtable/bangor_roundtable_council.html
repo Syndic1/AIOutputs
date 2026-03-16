@@ -2042,7 +2042,7 @@ body.council-variant::after {
       <span class="sidebar-label">SESSION</span>
       <button class="sidebar-btn summarise" onclick="summariseAndExport()"
         data-tip-title="END MEETING"
-        data-tip="Opens amendments panel for voting. Once done, generates the session summary, publishes minutes to GitHub, files to memory, and solicits new amendment proposals.">⚑ END MEETING</button>
+        data-tip="Solicits amendment proposals from all parties, opens the amendments panel for voting, then generates the session summary (including amendment outcomes), publishes minutes to GitHub, and files to memory.">⚑ END MEETING</button>
     </div>
 
     <!-- Amendments -->
@@ -4285,11 +4285,10 @@ function addResponseFromHistory(party, text, time) {
 
 // ── SUMMARISE & EXPORT ──────────────────────────────────────────────────────
 
-// Entry point for the PUBLISH MINUTES button.
-// If there are pending amendments, open the amendments panel for voting first.
-// The "GENERATE MINUTES" button in the panel then calls finaliseMinutes().
-// If no pending amendments exist, go straight to finaliseMinutes().
-function summariseAndExport() {
+// Entry point for the END MEETING button.
+// Flow: Solicit amendment proposals → Vote on all amendments → Generate summary → Publish minutes.
+// This ensures every amendment is captured in the published record.
+async function summariseAndExport() {
   const claudeKey = document.getElementById('claudeKey').value.trim();
   if (!claudeKey) {
     showKeyStatus('⚠ CLAUDE KEY NEEDED FOR SUMMARY', true);
@@ -4300,10 +4299,16 @@ function summariseAndExport() {
     return;
   }
 
+  // Reset session ratification tracking for this publish run
+  sessionRatifiedIds = new Set();
+
+  // Step 1: Solicit amendment proposals from all active parties
+  showKeyStatus('⚗ SOLICITING AMENDMENT PROPOSALS...');
+  await proposeAmendments();
+
+  // Step 2: Open amendments panel for voting (if any exist)
   const pendingAmendments = amendments.filter(a => a.status === 'pending' || a.status === 'voting');
   if (pendingAmendments.length > 0) {
-    // Reset session ratification tracking for this publish run
-    sessionRatifiedIds = new Set();
     _awaitingVoteBeforeMinutes = true;
     // Show the Generate Minutes button in the panel
     const btn = document.getElementById('generateMinutesBtn');
@@ -4313,16 +4318,16 @@ function summariseAndExport() {
     const backdrop = document.getElementById('drawerBackdrop');
     panel.classList.add('open');
     backdrop.classList.add('visible');
-    showKeyStatus(`⚖ ${pendingAmendments.length} AMENDMENT(S) PENDING — VOTE THEN GENERATE MINUTES`);
+    showKeyStatus(`⚖ ${pendingAmendments.length} AMENDMENT(S) PROPOSED — VOTE ON ALL, THEN GENERATE MINUTES`);
   } else {
-    // No pending amendments — proceed directly
-    sessionRatifiedIds = new Set();
+    // No amendments proposed — proceed directly to summary
     finaliseMinutes();
   }
 }
 
 async function finaliseMinutes() {
-  // Hide generate-minutes button and clear the waiting flag
+  // Called after all amendments have been voted on (or if none were proposed).
+  // Generates the session summary (including amendment outcomes) and publishes minutes.
   const btn = document.getElementById('generateMinutesBtn');
   if (btn) btn.style.display = 'none';
   _awaitingVoteBeforeMinutes = false;
@@ -4440,9 +4445,6 @@ ${transcriptText}${amendmentContext}`;
 
     // Publish formatted HTML minutes
     publishMinutes(summary);
-
-    // Auto-solicit amendment proposals from all active parties
-    proposeAmendments();
 
   } catch(err) {
     const summaryEl = document.getElementById('summaryLoading');
