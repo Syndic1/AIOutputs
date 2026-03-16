@@ -32,14 +32,11 @@ The browser makes direct API calls to all providers. No backend is required for 
 
 | File | Purpose |
 |------|---------|
-| `bangor_roundtable.html` | Main Roundtable interface (standard layout) |
-| `bangor_roundtable_council.html` | Council chamber variant with portrait seats |
+| `bangor_roundtable_council.html` | Main Roundtable interface with council chamber portrait seats |
 | `config.template` | Configuration template — copy and fill in |
 | `avatars/` | Party portrait images (Claude.png, ChatGPT.png, Gemini.png) |
 | `memory-server/memory_server.py` | Flask RAG server for the Raspberry Pi |
 | `memory-server/bangor-memory.service` | systemd unit file for auto-starting the memory server |
-
-Both HTML files are functionally identical — the council variant adds a visual chamber strip for toggling party participation.
 
 ---
 
