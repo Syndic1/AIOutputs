@@ -2938,9 +2938,10 @@ function loadConfig(event) {
         if (label) label.innerHTML = `DISPATCH<br>FROM ${n}:`;
       }
 
-      // Check memory server health
+      // Check memory server health then load archive
       if (_memoryServerEnabled && _memoryServerUrl) {
         checkMemoryServer();
+        autoLoadPriorContext();
       }
       updateCouncilChamber();
 
@@ -2989,7 +2990,10 @@ function restoreConfigFromSession() {
     }
     const keyCount = [_keys.claude, _keys.openai, _keys.gemini].filter(Boolean).length;
     setConfigStatus(`SESSION RESTORED · ${keyCount}/3 KEYS`, 'loaded');
-    if (_memoryServerEnabled && _memoryServerUrl) checkMemoryServer();
+    if (_memoryServerEnabled && _memoryServerUrl) {
+      checkMemoryServer();
+      autoLoadPriorContext();
+    }
     updateCouncilChamber();
   } catch(e) {}
 }
@@ -3033,8 +3037,6 @@ window.addEventListener('DOMContentLoaded', () => {
   restoreConfigFromSession();
   updateMemoryIndicator();
   updateCouncilChamber();
-  // Auto-pull prior session context from Pi if memory server is configured
-  setTimeout(autoLoadPriorContext, 1200); // slight delay to let config restore settle
 });
 
 async function autoLoadPriorContext() {
