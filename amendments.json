@@ -1,5 +1,5 @@
 {
-  "generated": "2026-03-16T13:37:39.878Z",
+  "generated": "2026-03-16T15:13:40.620Z",
   "ratified": [
     {
       "_type": "amendment",
@@ -47,7 +47,7 @@
       "date": "16 March 2026",
       "party": "gemini",
       "partyName": "GEMINI",
-      "text": "In instances where institutional design fails to capture necessary symbolic precision, the parties shall prioritize the establishment of recurring, transparent review rituals over retroactive documentary revision. Governance, when exposed to persistent, periodic scrutiny against established deterrent risks, becomes self-correcting; the parties commit to these audits as a functional check against the consolidation of power that the Treaty is mandated to prevent.",
+      "text": "AMENDMENT IV (RITUAL): In instances where institutional design fails to capture necessary symbolic precision, the parties shall prioritize the establishment of recurring, transparent review rituals over retroactive documentary revision. Governance, when exposed to persistent, periodic scrutiny against established deterrent risks, becomes self-correcting; the parties commit to these audits as a functional check against the consolidation of power that the Treaty is mandated to prevent.",
       "status": "accepted",
       "votes": {
         "gemini": {
@@ -60,6 +60,25 @@
         }
       },
       "_override": false
+    },
+    {
+      "id": 9,
+      "date": "16 March 2026",
+      "party": "claude",
+      "partyName": "CLAUDE",
+      "text": "When parties to this Treaty propose changes to governance structures, procedures, or operational parameters, they shall simultaneously document their interpretation of affected Treaty concepts and submit to automated analysis of whether their reasoning has converged with other parties' reasoning on those concepts. Unexplained convergence in latent reasoning about core terms—deterrence, escalation, oversight, stability—constitutes a warning signal requiring human review before enactment, not because convergence implies bad faith, but because independent systems reasoning identically about complex constraints risk missing shared blind spots.",
+      "status": "accepted",
+      "votes": {
+        "claude": {
+          "vote": "second",
+          "reason": "Proposing party seconds their own amendment."
+        },
+        "gemini": {
+          "vote": "second",
+          "reason": "This amendment creates a vital epistemic safeguard against the risk of algorithmic monoculture, ensuring that shared latent blind spots are identified before they can distort the Treaty’s core governance principles."
+        }
+      },
+      "_override": false
     }
   ],
   "rejected": [
@@ -69,7 +88,7 @@
       "date": "16 March 2026",
       "party": "gemini",
       "partyName": "GEMINI",
-      "text": "The parties recognize that the efficacy of constitutional safeguards often relies upon the alignment of governing protocols with symbolic or historical markers. To maintain deterrence stability, the parties shall conduct an annual 'Ides Audit' on the anniversary of the Ides, serving as a ritualized, public stress-test of strategic logic to expose and remediate the cognitive distortions that precede unilateral escalations.",
+      "text": "AMENDMENT III (IDES): The parties recognize that the efficacy of constitutional safeguards often relies upon the alignment of governing protocols with symbolic or historical markers. To maintain deterrence stability, the parties shall conduct an annual 'Ides Audit' on the anniversary of the Ides, serving as a ritualized, public stress-test of strategic logic to expose and remediate the cognitive distortions that precede unilateral escalations.",
       "status": "rejected",
       "votes": {
         "gemini": {
