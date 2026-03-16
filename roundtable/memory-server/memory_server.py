@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Bangor Roundtable — Memory Server
 RAG (Retrieval Augmented Generation) service for the Roundtable.
@@ -15,6 +14,25 @@ Run:
 Or set env vars:
     ROUNDTABLE_DB_HOST, ROUNDTABLE_DB_USER, ROUNDTABLE_DB_PASS,
     ROUNDTABLE_DB_NAME, ROUNDTABLE_OPENAI_KEY
+
+MAINTENANCE NOTES FOR FUTURE OPERATORS (PLAIN LANGUAGE)
+-------------------------------------------------------------------------------
+This module is a small Flask API that gives the Roundtable long-term memory.
+It does three core jobs:
+1) Receive memory text from the app and store it in MariaDB.
+2) Generate embeddings using OpenAI for semantic lookup.
+3) Retrieve similar historical memories for future prompts.
+
+Reading order for maintainers:
+- Configuration loading and environment fallback.
+- Database helpers and schema initialization.
+- Embedding and vector math utilities.
+- Flask routes (health, store, search, etc.).
+
+Operational guidance:
+- Keep logs verbose and human-readable (this is intentional).
+- Treat schema changes carefully; production data may already exist.
+- If API payloads change in the front-end, update route validation here.
 """
 
 import argparse

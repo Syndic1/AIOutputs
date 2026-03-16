@@ -1,6 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<!--
+  MAINTENANCE GUIDE (PLAIN LANGUAGE)
+  ---------------------------------------------------------------------------
+  This is the main application UI and orchestration logic for the Roundtable.
+  It contains both visual layout and substantial JavaScript behavior.
+
+  High-level architecture inside this single file:
+  - HTML: control panels, chambers, logs, amendment and minutes tools.
+  - CSS: full visual theme and responsive layout rules.
+  - JavaScript: provider calls, dispatch modes, memory integration, publishing,
+    amendment voting, cost tracking, and UI state management.
+
+  Practical maintenance advice:
+  - Make small focused edits and test after each change.
+  - Search for existing helper functions before adding new ones.
+  - Keep user-facing copy consistent with diplomatic tone.
+  - Prefer extending existing state objects rather than introducing parallel
+    globals with overlapping meaning.
+-->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bangor Roundtable — Diplomatic Connector</title>

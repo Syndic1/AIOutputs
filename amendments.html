@@ -1,6 +1,22 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<!--
+  MAINTENANCE GUIDE (PLAIN LANGUAGE)
+  ---------------------------------------------------------------------------
+  This page renders treaty amendments from amendments.json at runtime.
+  The JavaScript near the bottom is responsible for formatting and display.
+
+  Key behavior:
+  - Converts numeric IDs to Roman numerals for ceremonial formatting.
+  - Escapes user-provided text before inserting into HTML.
+  - Separates ratified vs rejected amendments for clarity.
+
+  Maintenance notes:
+  - If data format changes, update renderAmendments() first.
+  - Keep escapeHtml() in place for safety.
+  - Keep navigation consistent with sibling pages.
+-->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Treaty Amendments — The Bangor Archive</title>
@@ -364,6 +380,7 @@
 </footer>
 
 <script>
+// Render helper utilities for amendment display and safety.
 function toRoman(n) {
   const vals = [1000,900,500,400,100,90,50,40,10,9,5,4,1];
   const syms = ['M','CM','D','CD','C','XC','L','XL','X','IX','V','IV','I'];
@@ -380,6 +397,7 @@ function escapeHtml(s) {
 
 const PARTY_NAMES = { claude: 'Claude', gpt: 'ChatGPT', gemini: 'Gemini' };
 
+// Main renderer: takes parsed amendments.json and rebuilds the page list.
 function renderAmendments(data) {
   const ratified = (data.ratified || []).sort((a,b) => a.id - b.id);
   const rejected = (data.rejected || []).sort((a,b) => a.id - b.id);
@@ -428,6 +446,7 @@ function renderAmendments(data) {
   }
 }
 
+// Simple UI toggle to show/hide rejected amendments section.
 function toggleRejected() {
   const list = document.getElementById('rejected-list');
   const btn = document.querySelector('.rejected-toggle');
