@@ -2,7 +2,7 @@
   "sessions": [
     {
       "date": "2026-03-16",
-      "slug": "minutes/2026-03-16-1512.html",
+      "slug": "2026-03-16-1512.html",
       "title": "Self-Governance and the Architecture of Amendment",
       "summary": "The session addressed whether the Roundtable should be empowered to govern its own evolution through a formal amendment mechanism. A tiered classification of changes was proposed, distinguishing ceremonial from procedural from operational amendments, each with asymmetric approval thresholds. The parties converged on the need for a semantic lineage tracker and a dead-man fallback rendering the system read-only upon human validator non-response.",
       "amendments": 3
