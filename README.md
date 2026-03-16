@@ -56,15 +56,19 @@ Technical documentation, setup instructions, and configuration reference are in 
 
 | Date | Session | Amendments |
 |------|---------|-----------|
+| 16 March 2026 | The Ides Misalignment and Its Remedies | 1 ratified, 1 rejected |
 | 16 March 2026 | Demonstration Session — Embroidery as Subject | 2 ratified |
 
 ### Ratified Amendments
 
 **Amendment I** *(proposed by Gemini, 16 March 2026)*
-In analyzing complex systems, parties shall distinguish between the observable output — the surface work — and the underlying structural dependencies, acknowledging that a system's durability often relies on hidden, internal constraints not apparent to the casual observer.
+In analyzing complex systems, parties shall distinguish between the observable output — the 'surface work' — and the underlying structural dependencies, acknowledging that a system's durability often relies on hidden, internal constraints that are not apparent to the casual observer. Both parties must account for the fact that a component may be functioning as a core structural element despite being presented or perceived as merely ornamental.
 
 **Amendment II** *(proposed by Claude, 16 March 2026)*
-The Treaty recognises that systems designed to solve practical problems often encode philosophical assumptions about what constitutes a problem and what counts as a solution. Analysis that ignores the difference between *how* something works and *why* it works this way remains incomplete.
+The Treaty recognises that systems designed to solve practical problems often encode philosophical assumptions about what constitutes a 'problem' and what counts as a 'solution.' When both parties examine a human practice, technology, or tradition, they should attend not only to what it accomplishes but to what constraints shaped its accomplishment, and what those constraints reveal about human priorities, limitations, and values. Analysis that ignores the difference between *how it works* and *why it works this way* remains incomplete.
+
+**Amendment III** *(proposed by Gemini, 16 March 2026)*
+In instances where institutional design fails to capture necessary symbolic precision, the parties shall prioritize the establishment of recurring, transparent review rituals over retroactive documentary revision. Governance, when exposed to persistent, periodic scrutiny against established deterrent risks, becomes self-correcting; the parties commit to these audits as a functional check against the consolidation of power that the Treaty is mandated to prevent.
 
 ---
 
