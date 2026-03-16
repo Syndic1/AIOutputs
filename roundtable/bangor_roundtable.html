@@ -2279,7 +2279,7 @@ function renderAmendments() {
   amendments.forEach(amend => {
     const partyClass = amend.party ? `${amend.party}-card` : '';
     const statusLabel = amend.status === 'accepted' ? ' · ✓ RATIFIED' : amend.status === 'rejected' ? ' · ✗ REJECTED' : ' · PENDING';
-    const romanNum = toRoman(amend.id);
+    const romanNum = toRoman(amendOrdinal(amend));
 
     const card = document.createElement('div');
     card.className = `amendment-card ${partyClass} ${amend.status}`;
@@ -2313,6 +2313,15 @@ function toRoman(n) {
     while (n >= vals[i]) { result += syms[i]; n -= vals[i]; }
   }
   return result;
+}
+
+function amendOrdinal(amend) {
+  if (amend.status === 'accepted') {
+    const accepted = amendments.filter(a => a.status === 'accepted');
+    const idx = accepted.findIndex(a => a.id === amend.id);
+    return idx >= 0 ? idx + 1 : amend.id;
+  }
+  return amend.id;
 }
 
 function acceptAmendment(id) {
@@ -2359,7 +2368,7 @@ async function pushAmendmentToMemory(amend) {
       body: JSON.stringify({
         content,
         source_type: 'amendment',
-        source_ref: `Amendment ${toRoman(amend.id)} — ${statusLabel} — ${amend.date}`
+        source_ref: `Amendment ${toRoman(amendOrdinal(amend))} — ${statusLabel} — ${amend.date}`
       }),
       signal: AbortSignal.timeout(5000)
     });
@@ -2419,7 +2428,7 @@ async function proposeAmendments() {
   }).filter(Boolean).join('\n\n');
 
   const existingAmendments = amendments.filter(a => a.status === 'accepted')
-    .map(a => `AMENDMENT ${toRoman(a.id)} (${a.partyName}): ${a.text}`)
+    .map((a, idx) => `AMENDMENT ${toRoman(idx + 1)} (${a.partyName}): ${a.text}`)
     .join('\n');
 
   const amendPrompt = `You are a signatory to the Treaty of Bangor. Based on the following Roundtable session, propose 0-2 amendments to the Treaty text.
@@ -2577,7 +2586,7 @@ ${summaryText ? `<div class="m-section"><div class="m-section-title">SESSION SUM
 <div class="m-seat gemini">${_avatars.gemini?`<img src="${_avatars.gemini}" class="m-avatar" alt="Gemini">`:''}  <div class="m-seat-name">GEMINI</div><div class="m-seat-role">Multimodal Witness</div></div>
 <div class="m-seat hugh"><div class="m-seat-name">HUGH ROBERTS</div><div class="m-seat-role">Chair of Proceedings</div></div>
 </div></div>
-${ratifiedAmendments.length>0?`<div class="m-section"><div class="m-section-title">RATIFIED AMENDMENTS</div>${ratifiedAmendments.map(a=>`<div class="m-amend"><div class="m-amend-id">AMENDMENT ${toRoman(a.id)} · ${a.date} · ${escapeHtml(a.partyName)}${a._override?' · CHAIR OVERRIDE':''}</div><div>${escapeHtml(a.text)}</div></div>`).join('')}</div>`:''}
+${ratifiedAmendments.length>0?`<div class="m-section"><div class="m-section-title">RATIFIED AMENDMENTS</div>${ratifiedAmendments.map((a,idx)=>`<div class="m-amend"><div class="m-amend-id">AMENDMENT ${toRoman(idx+1)} · ${a.date} · ${escapeHtml(a.partyName)}${a._override?' · CHAIR OVERRIDE':''}</div><div>${escapeHtml(a.text)}</div></div>`).join('')}</div>`:''}
 <div class="m-section"><div class="m-section-title">TRANSCRIPT</div>${transcriptHtml}</div>
 ${sessionCostLog.length>0?`<div class="m-section"><div class="m-section-title">SESSION COST ESTIMATE</div><table class="m-cost-table"><thead><tr><th>PARTY</th><th>EST. TOKENS</th><th>EST. COST</th></tr></thead><tbody>${costBreakdown}</tbody></table><div class="m-cost-total">SESSION TOTAL: $${sessionCost.toFixed(4)}</div></div>`:''}
 <div class="m-footer"><span>TREATY OF BANGOR · BANGOR ARCHIVE REF: MISC-2026-001</span><span>All shall be well. ⚜</span></div>
@@ -2796,8 +2805,8 @@ function getSystemPrompt(ltm = '', party = 'claude') {
   if (ratified.length > 0) {
     prompt += '\n\n─────────────────────────────────────────────';
     prompt += '\nRATIFIED TREATY AMENDMENTS (in force):';
-    ratified.forEach(a => {
-      prompt += `\n\nAMENDMENT ${toRoman(a.id)} — ${a.date}\nProposed by: ${a.partyName}\n${a.text}`;
+    ratified.forEach((a, idx) => {
+      prompt += `\n\nAMENDMENT ${toRoman(idx + 1)} — ${a.date}\nProposed by: ${a.partyName}\n${a.text}`;
     });
     prompt += '\n─────────────────────────────────────────────';
   }

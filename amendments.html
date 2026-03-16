@@ -388,7 +388,7 @@ function renderAmendments(data) {
   if (ratified.length === 0) {
     container.innerHTML = `<div class="empty-state">No amendments have yet been ratified. The Treaty stands as originally concluded on 14 March 2026.</div>`;
   } else {
-    container.innerHTML = ratified.map(a => {
+    container.innerHTML = ratified.map((a, idx) => {
       const votes = a.votes || {};
       const voteHtml = Object.entries(votes).map(([p, v]) => `
         <div class="vote-entry ${v.vote}">
@@ -402,7 +402,7 @@ function renderAmendments(data) {
           <div class="amendment-inner">
             <div class="amendment-header">
               <div class="amendment-id">
-                Amendment ${toRoman(a.id)}
+                Amendment ${toRoman(idx + 1)}
                 ${a._override ? '<span class="override-badge">Chair Override</span>' : ''}
               </div>
               <div class="amendment-meta">
@@ -420,9 +420,9 @@ function renderAmendments(data) {
 
   if (rejected.length > 0) {
     document.getElementById('rejected-section').style.display = 'block';
-    document.getElementById('rejected-list').innerHTML = rejected.map(a => `
+    document.getElementById('rejected-list').innerHTML = rejected.map((a, idx) => `
       <div class="rejected-amendment">
-        <div class="rejected-id">Amendment ${toRoman(a.id)} (Rejected · ${escapeHtml(a.date)})</div>
+        <div class="rejected-id">Rejected Amendment ${toRoman(idx + 1)} (${escapeHtml(a.date)})</div>
         <div class="rejected-text">${escapeHtml(a.text)}</div>
       </div>`).join('');
   }
