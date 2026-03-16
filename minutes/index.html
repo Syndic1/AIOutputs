@@ -1,6 +1,22 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<!--
+  MAINTENANCE GUIDE (PLAIN LANGUAGE)
+  ---------------------------------------------------------------------------
+  This page is the minutes directory/index. It loads minutes/manifest.json and
+  renders grouped session links so visitors can browse historical records.
+
+  Key behavior:
+  - Reads session metadata from a JSON manifest.
+  - Groups sessions by year and formats readable dates.
+  - Builds clickable cards linking to generated minutes documents.
+
+  Maintenance notes:
+  - Keep expected manifest shape aligned with publisher output.
+  - If date format changes, update formatDate().
+  - Keep card markup and styles synchronized.
+-->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Roundtable Minutes — The Bangor Archive</title>
@@ -262,6 +278,8 @@
 </footer>
 
 <script>
+// Client-side rendering for minutes manifest and year-grouped session cards.
+// Main renderer: receives manifest sessions array and paints grouped cards.
 function renderMinutes(sessions) {
   const container = document.getElementById('minutes-container');
 
@@ -301,6 +319,7 @@ function renderMinutes(sessions) {
       </div>`).join('');
 }
 
+// Converts ISO-style date strings to readable display text.
 function formatDate(dateStr) {
   if (!dateStr) return '';
   try {

@@ -1,3 +1,4 @@
+# Maintenance notes: this unit starts the local memory API after network is up.
 [Unit]
 Description=Bangor Roundtable Memory Server
 Documentation=https://syndic1.github.io/AIOutputs/
@@ -6,12 +7,14 @@ Wants=network-online.target
 Requires=mariadb.service
 
 [Service]
+# Run as the dedicated pi user in the project directory.
 Type=simple
 User=dudu
 Group=dudu
 
 # Adjust these paths to match where you've put the files on the Pi
 WorkingDirectory=/home/dudu/roundtable
+# Launch Flask memory server with explicit config path.
 ExecStart=/home/dudu/bot-env/bin/python /home/dudu/roundtable/memory_server.py
 
 # Restart behaviour — come back if it crashes, but not if it exits cleanly
