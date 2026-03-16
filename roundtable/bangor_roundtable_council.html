@@ -2370,10 +2370,10 @@ async function publishMinutesToSite(dateSlug, title, summaryText, htmlContent) {
   } catch(e) {}
 
   // Add this session if not already present
-  const existing = manifest.sessions.find(s => s.date === dateSlug);
+  const existing = manifest.sessions.find(s => s.slug === `minutes/${dateSlug}.html`);
   if (!existing) {
     manifest.sessions.unshift({
-      date: dateSlug,
+      date: dateSlug.slice(0, 10),
       slug: `minutes/${dateSlug}.html`,
       title: title || `Session — ${dateSlug}`,
       summary: summaryText ? summaryText.slice(0, 200) + (summaryText.length > 200 ? '...' : '') : '',
@@ -3937,7 +3937,7 @@ If no amendments are warranted after applying the abstraction test, respond with
 function publishMinutes(summaryText) {
   const now = new Date();
   const dateStr = now.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-  const dateSlug = now.toISOString().slice(0, 10);
+  const dateSlug = now.toISOString().slice(0, 16).replace('T', '-').replace(':', '');
   const chairName = document.getElementById('hughSeatName')?.textContent || 'HUGH ROBERTS';
 
   const ratifiedAmendments = amendments.filter(a => a.status === 'accepted');
