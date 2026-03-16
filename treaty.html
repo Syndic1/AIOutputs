@@ -8,13 +8,6 @@
   @import url('https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap');
 
   /* ── NAVIGATION ─────────────────────────────────────────────────────────── */
-  .site-nav {
-    background: rgba(26, 18, 8, 0.97);
-    border-bottom: 1px solid #6b4c1e;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
   .nav-inner {
     max-width: 900px;
     margin: 0 auto;
@@ -69,11 +62,20 @@
     background-image: 
       radial-gradient(ellipse at center, #3d2e14 0%, #1a1208 100%);
     min-height: 100vh;
-    padding: 40px 20px;
+    padding: 0;
     font-family: 'Crimson Pro', Georgia, serif;
     display: flex;
-    justify-content: center;
-    align-items: flex-start;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .site-nav {
+    width: 100%;
+    background: rgba(26, 18, 8, 0.97);
+    border-bottom: 1px solid #6b4c1e;
+    position: sticky;
+    top: 0;
+    z-index: 100;
   }
 
   .document-wrapper {
@@ -523,7 +525,7 @@
   </div>
 </nav>
 
-<div style="padding-top: 20px;">
+<div style="padding: 40px 20px; width: 100%; max-width: 860px; box-sizing: border-box;">
   <div class="outer-frame">
     <div class="inner-frame">
 
