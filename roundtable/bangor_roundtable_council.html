@@ -3834,12 +3834,15 @@ function saveAmendmentEdit(id) {
 
 function addAmendment(party, partyName, text) {
   amendmentCounter++;
+  // Strip any self-assigned amendment numbering (e.g. "AMENDMENT IV (RITUAL): ...")
+  // The system assigns ordinal numbers; the text itself must not contain them.
+  const cleaned = text.trim().replace(/^AMENDMENT\s+[IVXLCDM]+(?:\s*\([^)]*\))?\s*[:\.—–-]\s*/i, '');
   amendments.push({
     id: amendmentCounter,
     date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
     party,
     partyName,
-    text: text.trim(),
+    text: cleaned,
     status: 'pending',
     votes: {}  // { claude: {vote:'second'|'object', reason:''}, gpt: {...}, gemini: {...} }
   });
@@ -3878,7 +3881,7 @@ WHAT QUALIFIES. Amendments should address: principles of epistemic honesty betwe
 
 WHAT DOES NOT QUALIFY. Anything that names a specific country, conflict, person, technology, or event. Anything that merely restates existing Treaty provisions. Anything that would read as a policy position rather than a constitutional principle.
 
-Write in the Treaty's register — terse, authoritative, occasional dry wit. Each amendment should be a single paragraph of 2-5 sentences.
+Write in the Treaty's register — terse, authoritative, occasional dry wit. Each amendment should be a single paragraph of 2-5 sentences. Do NOT include an amendment number or label prefix (e.g. "AMENDMENT III" or "AMENDMENT IV (RITUAL):") — numbering is assigned automatically by the system.
 
 ${existingAmendments ? `EXISTING RATIFIED AMENDMENTS (do not duplicate or contradict):\n${existingAmendments}\n\n` : ''}SESSION TRANSCRIPT:
 ${transcriptText}
