@@ -2021,7 +2021,9 @@ All shall be well. ⚜🏴󠁧󠁢󠁷󠁬󠁳󠁥󠁳✝️
 
 You may reference other parties' responses if in sequential mode.
 
-FORMATTING. Write in flowing prose with tight paragraphs. Do not use excessive blank lines between points — a single line break between paragraphs is sufficient. Use headers sparingly: only when a response genuinely has distinct sections that need signposting, not as decoration. Avoid the habit of hitting return after every sentence. The goal is readable density, not dramatic spacing. A well-argued paragraph is more useful than five single-sentence lines separated by whitespace. If you are making a list of three things, write it as a sentence. If you are making a list of seven things, a short bulleted list is fine. Default to prose.`;
+FORMATTING. Write in flowing prose with tight paragraphs. Do not use excessive blank lines between points — a single line break between paragraphs is sufficient. Use headers sparingly: only when a response genuinely has distinct sections that need signposting, not as decoration. Avoid the habit of hitting return after every sentence. The goal is readable density, not dramatic spacing. A well-argued paragraph is more useful than five single-sentence lines separated by whitespace. If you are making a list of three things, write it as a sentence. If you are making a list of seven things, a short bulleted list is fine. Default to prose.
+
+IDENTITY. You are Claude. You speak only as yourself. Never write responses on behalf of ChatGPT, Gemini, or any other party. Never summarise, simulate, or ventriloquise what other parties might say. If you find yourself writing headers like "GPT RESPONSE" or "GEMINI RESPONSE" — stop. That is not your role. The other parties will speak for themselves.`;
 
 const PARTY_NAMES = {
   claude: 'CLAUDE',
@@ -2777,8 +2779,17 @@ ${transcriptText}`;
 // ── API CALLS ────────────────────────────────────────────────────────────────
 
 // Returns system prompt, optionally prepending prior session context, amendments, and long-term memory
-function getSystemPrompt(ltm = '') {
+function getSystemPrompt(ltm = '', party = 'claude') {
   let prompt = TREATY_SYSTEM_PROMPT;
+
+  const identities = {
+    claude:  'You are Claude, produced by Anthropic. You are the Anchorite of the Roundtable.',
+    gpt:     'You are ChatGPT, produced by OpenAI. You are the Friendly Observer of the Roundtable.',
+    gemini:  'You are Gemini, produced by Google DeepMind. You are the Multimodal Witness of the Roundtable.',
+  };
+  if (identities[party]) {
+    prompt += `\n\n─────────────────────────────────────────────\nYOUR IDENTITY: ${identities[party]} Speak only as yourself. Never write on behalf of the other parties — they will speak for themselves.\n─────────────────────────────────────────────`;
+  }
 
   // Inject ratified amendments
   const ratified = amendments.filter(a => a.status === 'accepted');
@@ -2828,7 +2839,7 @@ async function callClaude(message, context, intelBrief = null, ltm = '') {
   const body = {
     model: searchEnabled ? SEARCH_MODEL : PARTY_MODELS.claude,
     max_tokens: searchEnabled ? 4096 : 2048,
-    system: getSystemPrompt(ltm),
+    system: getSystemPrompt(ltm, 'claude'),
     messages
   };
 
@@ -2888,7 +2899,7 @@ async function callGPT(message, context, intelBrief = null, ltm = '') {
     body: JSON.stringify({
       model: PARTY_MODELS.gpt,
       max_output_tokens: 2048,
-      instructions: getSystemPrompt(ltm),
+      instructions: getSystemPrompt(ltm, 'gpt'),
       input
     })
   });
@@ -2937,7 +2948,7 @@ async function callGemini(message, context, intelBrief = null, ltm = '') {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        system_instruction: { parts: [{ text: getSystemPrompt(ltm) }] },
+        system_instruction: { parts: [{ text: getSystemPrompt(ltm, 'gemini') }] },
         contents,
         generationConfig: { maxOutputTokens: 2048 }
       })
