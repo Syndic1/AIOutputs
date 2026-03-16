@@ -57,8 +57,6 @@
 | Item | Notes |
 |------|-------|
 | Minutes avatar embedding | Cheap fix in place — avatars manually copied to `/minutes/avatars/` |
-| Main roundtable parity | `bangor_roundtable.html` may lag behind council variant on some instrumentation |
-| `summaryText` variable scope | Confirm `summaryText` is in scope when `publishMinutesToSite()` is called |
 
 ---
 
