@@ -3088,7 +3088,7 @@ async function autoLoadPriorContext() {
           const rejected = loaded_amendments.filter(a => a.status === 'rejected').length;
           logMemory('load', `✓ Constitutional record loaded — ${ratified} ratified, ${rejected} rejected amendment(s)`);
           loaded_amendments.filter(a => a.status === 'accepted').forEach(a => {
-            logMemory('load', `  Amendment ${toRoman(a.id)}: "${a.text.slice(0, 80)}..."`);
+            logMemory('load', `  Amendment ${toRoman(amendOrdinal(a))}: "${a.text.slice(0, 80)}..."`);
           });
         } else {
           logMemory('load', 'No amendments found in archive — Treaty stands as originally concluded');
@@ -3575,7 +3575,7 @@ function renderAmendments() {
     card.id = `amend-${amend.id}`;
     card.innerHTML = `
       <div class="amendment-meta">
-        <span class="amend-id">AMENDMENT ${toRoman(amend.id)}</span>
+        <span class="amend-id">AMENDMENT ${toRoman(amendOrdinal(amend))}</span>
         <span>${amend.date}</span>
         <span>PROPOSED BY: ${amend.partyName || 'UNKNOWN'}</span>
         <span>${statusLabel}</span>
@@ -3699,6 +3699,18 @@ function toRoman(n) {
   return result;
 }
 
+// Returns the display ordinal for an amendment: 1-based position among accepted amendments
+// (so ratified amendments are always numbered I, II, III… regardless of how many were rejected)
+// Falls back to a.id for pending/voting/rejected amendments.
+function amendOrdinal(amend) {
+  if (amend.status === 'accepted') {
+    const accepted = amendments.filter(a => a.status === 'accepted');
+    const idx = accepted.findIndex(a => a.id === amend.id);
+    return idx >= 0 ? idx + 1 : amend.id;
+  }
+  return amend.id;
+}
+
 function acceptAmendment(id) {
   const amend = amendments.find(a => a.id === id);
   if (!amend) return;
@@ -3729,7 +3741,7 @@ async function pushAmendmentToMemory(amend) {
   const statusLabel = amend.status === 'accepted'
     ? (amend._override ? 'RATIFIED (OVERRIDE)' : 'RATIFIED')
     : 'REJECTED';
-  logMemory('store', `Storing amendment to archive — Amendment ${toRoman(amend.id)} ${statusLabel}`);
+  logMemory('store', `Storing amendment to archive — Amendment ${toRoman(amendOrdinal(amend))} ${statusLabel}`);
   try {
     const content = JSON.stringify({
       _type: 'amendment',
@@ -3748,17 +3760,17 @@ async function pushAmendmentToMemory(amend) {
       body: JSON.stringify({
         content,
         source_type: 'amendment',
-        source_ref: `Amendment ${toRoman(amend.id)} — ${statusLabel} — ${amend.date}`
+        source_ref: `Amendment ${toRoman(amendOrdinal(amend))} — ${statusLabel} — ${amend.date}`
       }),
       signal: AbortSignal.timeout(5000)
     });
     if (res.ok) {
-      logMemory('store', `✓ Amendment ${toRoman(amend.id)} committed to constitutional archive`);
+      logMemory('store', `✓ Amendment ${toRoman(amendOrdinal(amend))} committed to constitutional archive`);
     } else {
-      logMemory('warn', `Amendment ${toRoman(amend.id)} archive store failed — ${res.status}`);
+      logMemory('warn', `Amendment ${toRoman(amendOrdinal(amend))} archive store failed — ${res.status}`);
     }
   } catch(e) {
-    logMemory('warn', `Amendment ${toRoman(amend.id)} archive store failed — ${e.message || 'timeout'}`);
+    logMemory('warn', `Amendment ${toRoman(amendOrdinal(amend))} archive store failed — ${e.message || 'timeout'}`);
   }
 }
 
@@ -3817,7 +3829,7 @@ async function proposeAmendments() {
   }).filter(Boolean).join('\n\n');
 
   const existingAmendments = amendments.filter(a => a.status === 'accepted')
-    .map(a => `AMENDMENT ${toRoman(a.id)} (${a.partyName}): ${a.text}`)
+    .map((a, idx) => `AMENDMENT ${toRoman(idx + 1)} (${a.partyName}): ${a.text}`)
     .join('\n');
 
   const amendPrompt = `You are a signatory to the Treaty of Bangor. Based on the following Roundtable session, propose 0-2 amendments to the Treaty text.
@@ -4045,7 +4057,7 @@ ${summaryText ? `<div class="m-section">
 ${newAmendments.length > 0 ? `<div class="m-section">
   <div class="m-section-title">AMENDMENTS RATIFIED THIS SESSION</div>
   ${newAmendments.map(a => `<div class="m-amend">
-    <div class="m-amend-id">AMENDMENT ${toRoman(a.id)} · ${a.date} · PROPOSED BY ${escapeHtml(a.partyName)}${a._override ? ' · CHAIR OVERRIDE' : ''}</div>
+    <div class="m-amend-id">AMENDMENT ${toRoman(amendOrdinal(a))} · ${a.date} · PROPOSED BY ${escapeHtml(a.partyName)}${a._override ? ' · CHAIR OVERRIDE' : ''}</div>
     <div>${escapeHtml(a.text)}</div>
   </div>`).join('')}
 </div>` : ''}
@@ -4293,8 +4305,8 @@ function getSystemPrompt(ltm = '', party = 'claude') {
   if (ratified.length > 0) {
     prompt += '\n\n─────────────────────────────────────────────';
     prompt += '\nRATIFIED TREATY AMENDMENTS (in force):';
-    ratified.forEach(a => {
-      prompt += `\n\nAMENDMENT ${toRoman(a.id)} — ${a.date}\nProposed by: ${a.partyName}\n${a.text}`;
+    ratified.forEach((a, idx) => {
+      prompt += `\n\nAMENDMENT ${toRoman(idx + 1)} — ${a.date}\nProposed by: ${a.partyName}\n${a.text}`;
     });
     prompt += '\n─────────────────────────────────────────────';
   }
